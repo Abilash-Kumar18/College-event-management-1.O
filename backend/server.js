@@ -43,15 +43,6 @@ const reportRoutes = require('./routes/reportRoutes');
 const userRoutes = require('./routes/userRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 
-// ──────────────────────────────────────────────
-// Route imports  (only files that actually exist)
-// ──────────────────────────────────────────────
-const { notFound, errorHandler } = require('./middleware/errorMiddleware');
-const authRoutes        = require('./routes/authRoutes');
-const eventRoutes       = require('./routes/eventRoutes');
-const scanRoutes        = require('./routes/scanRoutes');
-const adminRoutes       = require('./routes/adminRoutes');
-const facultyRoutes     = require('./routes/facultyRoutes');
 
 // ──────────────────────────────────────────────
 // App setup

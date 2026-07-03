@@ -1,5 +1,5 @@
 /* ============================================================
-   Verification Page — Leaf Green-White Brand Palette
+   Verification Page — Premium Light Green Theme
    ============================================================ */
 
 .verify-container {
@@ -7,21 +7,21 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #faf9fe;
+  background-color: var(--ace-bg, #f8fafc);
   padding: 20px;
   box-sizing: border-box;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .verify-card {
-  background: #ffffff;
+  background: var(--ace-bg-soft, #ffffff);
   width: 100%;
   max-width: 440px;
   border-radius: 16px;
   padding: 36px 32px;
-  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.06), 0 1px 3px rgba(0,0,0,0.02);
-  border: 1px solid #e5e7eb;
-  color: #1f2937;
+  box-shadow: var(--ace-card-shadow, 0 4px 6px -1px rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--ace-border, #e2e8f0);
+  color: var(--ace-text, #0f172a);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -39,7 +39,7 @@
 .header h2 {
   font-size: 24px;
   font-weight: 800;
-  color: #1f2937;
+  color: var(--ace-text, #0f172a);
   margin: 0;
   letter-spacing: -0.5px;
 }
@@ -51,104 +51,87 @@
   transform: translateY(-50%);
   font-size: 24px;
   cursor: pointer;
-  color: #4b5563;
+  color: var(--ace-text-muted, #475569);
   text-decoration: none;
   line-height: 1;
   transition: color 0.2s, transform 0.2s;
 }
 
 .back-arrow:hover {
-  color: #22c55e;
+  color: var(--ace-primary, #10b981);
   transform: translateY(-50%) translateX(-3px);
 }
 
 .verify-description {
   font-size: 14px;
   line-height: 1.65;
-  color: #4b5563;
-  margin-bottom: 32px;
+  color: var(--ace-text-muted, #475569);
+  margin-bottom: 28px;
   text-align: center;
 }
 
 .verify-form {
-  text-align: center;
+  text-align: left;
 }
 
-.otp-inputs-container {
-  display: flex;
-  justify-content: center;
-  gap: 16px;
-  margin-bottom: 28px;
-}
-
-.otp-input-field {
-  width: 60px;
-  height: 60px;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  text-align: center;
-  font-size: 26px;
-  font-weight: 700;
-  color: #1f2937;
-  font-family: 'Inter', sans-serif;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.otp-input-field:focus {
-  outline: none;
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
-}
-
-.resend-container {
-  margin-bottom: 30px;
+.verify-label {
+  color: var(--ace-text-muted, #475569);
   font-size: 13px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
 }
 
-.resend-text {
-  color: #4b5563;
+.verify-input {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: var(--ace-bg-soft, #ffffff);
+  border: 1px solid var(--ace-border, #e2e8f0);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+  font-size: 14px;
+  color: var(--ace-text, #0f172a);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
 }
 
-.resend-link {
-  color: #22c55e;
-  font-weight: 700;
-  text-decoration: none;
-  margin-left: 4px;
-  transition: color 0.2s;
+.verify-input::placeholder {
+  color: #94a3b8;
 }
 
-.resend-link:hover {
-  color: #16a34a;
-  text-decoration: underline;
+.verify-input:focus {
+  outline: none;
+  border-color: var(--ace-primary, #10b981);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 .verify-submit-btn {
   width: 100%;
   padding: 13px;
-  background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+  background: var(--ace-gradient, linear-gradient(135deg, #10b981 0%, #34d399 100%));
   color: #ffffff;
   border: none;
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
   font-size: 15px;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
   transition: all 0.2s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
 }
 
 .verify-submit-btn:hover {
   opacity: 0.95;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
 }
 
 .verify-submit-btn:active {
   transform: translateY(0);
 }
 
-/* Desktop */
 @media (min-width: 768px) {
   .verify-card {
     padding: 44px 40px;
@@ -157,7 +140,6 @@
   }
 }
 
-/* Small Mobile */
 @media (max-width: 480px) {
   .verify-card {
     padding: 28px 20px;

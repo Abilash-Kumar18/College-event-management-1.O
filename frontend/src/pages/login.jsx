@@ -105,15 +105,23 @@ export default function Login() {
       }
     }
 
-    // 3. Retrieve remembered email and role
+    // 3. Retrieve remembered email
     const remembered = localStorage.getItem("rememberedEmail");
-    const rememberedRole = localStorage.getItem("rememberedRole");
     if (remembered) {
       setEmail(remembered);
       setRememberMe(true);
     }
-    if (rememberedRole) {
-      setRole(rememberedRole);
+
+    // Default to Student role, check if specific role requested in URL
+    const queryParams = new URLSearchParams(window.location.search);
+    const urlRole = queryParams.get("role");
+    if (urlRole) {
+      const capitalized = urlRole.charAt(0).toUpperCase() + urlRole.slice(1).toLowerCase();
+      if (["Student", "Faculty", "Organizer"].includes(capitalized)) {
+        setRole(capitalized);
+      }
+    } else {
+      setRole("Student");
     }
 
     return () => {
@@ -177,28 +185,32 @@ export default function Login() {
 
   return (
     <div className="login-container">
-      {showLogoOverlay && (
-        <div className="login-logo-overlay" style={{ opacity: overlayFadeOut ? 0 : 1 }}>
-          <img 
-            src={logoImg} 
-            alt="Campus Events Logo" 
-            className="login-overlay-logo"
-          />
-        </div>
-      )}
       <div className="login-card">
-        {/* Product Brand & Logo */}
-        <div style={{ textAlign: "center", marginBottom: "20px" }}>
-          <img 
-            src={logoImg} 
-            alt="Campus Events Logo" 
-            style={{ width: "90px", height: "90px", borderRadius: "12px", marginBottom: "8px", boxShadow: "0 8px 16px rgba(0,0,0,0.15)" }} 
-          />
-          <h2 style={{ fontSize: "22px", fontWeight: "800", color: "#3a7a10", margin: "0", letterSpacing: "0.5px" }}>CAMPUS EVENTS</h2>
-          <p style={{ fontSize: "11px", color: "#666", margin: "2px 0 0 0", letterSpacing: "1px", textTransform: "uppercase", fontWeight: "600" }}>Student Portal</p>
+        <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "16px" }}>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              color: "var(--ace-text-muted, #475569)",
+              fontSize: "14px",
+              fontWeight: "600",
+              padding: "0"
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back
+          </button>
         </div>
-
-        <h1 className="login-title" style={{ fontSize: "16px", marginTop: "5px", color: "#444" }}>
+        <h1 className="login-title" style={{ fontSize: "22px", fontWeight: "800", marginTop: "5px", color: "var(--ace-primary, #10b981)", textAlign: "center", letterSpacing: "0.5px" }}>
           {role === "Student" ? "Login" : role === "Faculty" ? "Faculty Sign In" : "Organizer Login"}
         </h1>
 

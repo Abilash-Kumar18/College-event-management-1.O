@@ -3,6 +3,7 @@ const Registration = require('../models/Registration');
 const Announcement = require('../models/Announcement');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const { sendApprovalEmail } = require('../utils/email');
 
 // @desc    Get faculty dashboard statistics
 // @route   GET /api/faculty/dashboard
@@ -40,8 +41,8 @@ const getPendingEvents = async (req, res, next) => {
   try {
     let query = { status: 'Pending Review' };
     
-    // Non-admin faculty only review events where they were requested
-    if (req.user.role !== 'admin') {
+    // Any faculty or admin can review pending events
+    if (req.user.role !== 'admin' && req.user.role !== 'faculty') {
       query.requestedFaculty = req.user._id;
     }
 
@@ -75,14 +76,18 @@ const updateEventStatus = async (req, res, next) => {
       throw new Error('Event not found');
     }
 
-    // Verify authorized faculty
-    if (req.user.role !== 'admin' && String(event.requestedFaculty) !== String(req.user._id)) {
+    // Verify authorized faculty/admin
+    if (req.user.role !== 'admin' && req.user.role !== 'faculty') {
       res.status(403);
       throw new Error('You are not authorized to review this event request');
     }
 
     event.status = status;
+    if (status === 'Rejected') {
+      event.rejectedBy = req.user._id;
+    }
     await event.save();
+    await event.populate('rejectedBy', 'name email role mobileNumber');
 
     res.status(200).json({
       success: true,
@@ -313,6 +318,162 @@ const approveOrganizer = async (req, res, next) => {
   }
 };
 
+// @desc    Delete a user (student/organizer) access
+// @route   DELETE /api/faculty/users/:id
+// @access  Private/Faculty/Admin
+const deleteUser = async (req, res, next) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400);
+      throw new Error('Invalid user ID format');
+    }
+
+    const userToDelete = await User.findById(id);
+    if (!userToDelete) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    if (userToDelete.role === 'admin') {
+      res.status(403);
+      throw new Error('Cannot delete an administrator account');
+    }
+
+    await User.findByIdAndDelete(id);
+
+    if (userToDelete.role === 'student') {
+      await Registration.deleteMany({ studentId: id });
+    }
+    if (userToDelete.role === 'organizer') {
+      await Event.deleteMany({ createdBy: id });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'User account and associated records deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete an event
+// @route   DELETE /api/faculty/events/:id
+// @access  Private/Faculty/Admin
+const deleteEvent = async (req, res, next) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400);
+      throw new Error('Invalid event ID format');
+    }
+
+    const eventToDelete = await Event.findById(id);
+    if (!eventToDelete) {
+      res.status(404);
+      throw new Error('Event not found');
+    }
+
+    eventToDelete.status = 'Deleted';
+    eventToDelete.deletedBy = req.user._id;
+    await eventToDelete.save();
+    await eventToDelete.populate('deletedBy', 'name email role mobileNumber');
+
+    res.status(200).json({
+      success: true,
+      message: 'Event deleted successfully (soft-deleted)',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete a registration
+// @route   DELETE /api/faculty/registrations/:id
+// @access  Private/Faculty/Admin
+const deleteRegistration = async (req, res, next) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400);
+      throw new Error('Invalid registration ID format');
+    }
+
+    const reg = await Registration.findById(id);
+    if (!reg) {
+      res.status(404);
+      throw new Error('Registration not found');
+    }
+
+    await Registration.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Registration deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Accept or Deny event coordination request
+// @route   PUT /api/faculty/events/:eventId/coordination
+// @access  Private/Faculty/Admin
+const updateEventCoordinationStatus = async (req, res, next) => {
+  const { eventId } = req.params;
+  const { status } = req.body;
+
+  try {
+    if (!status || !['Accepted', 'Denied'].includes(status)) {
+      res.status(400);
+      throw new Error('Invalid coordination status. Must be Accepted or Denied');
+    }
+
+    const event = await Event.findById(eventId);
+    if (!event) {
+      res.status(404);
+      throw new Error('Event not found');
+    }
+
+    if (req.user.role !== 'admin' && String(event.requestedFaculty) !== String(req.user._id)) {
+      res.status(403);
+      throw new Error('You are not authorized to coordinate this event');
+    }
+
+    event.coordinationStatus = status;
+    if (status === 'Accepted') {
+      event.status = 'Approved';
+    } else if (status === 'Denied') {
+      event.status = 'Rejected';
+      event.rejectedBy = req.user._id;
+    }
+    await event.save();
+
+    if (status === 'Accepted') {
+      try {
+        await event.populate('createdBy', 'name email');
+        if (event.createdBy && event.createdBy.email) {
+          await sendApprovalEmail(event.createdBy.email, event.createdBy.name, event.title);
+        }
+      } catch (emailErr) {
+        console.error('Failed to send coordination approval email notification:', emailErr);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Event coordination request ${status.toLowerCase()} successfully`,
+      event
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getFacultyDashboard,
   getPendingEvents,
@@ -322,4 +483,8 @@ module.exports = {
   createAnnouncement,
   getFacultyReports,
   approveOrganizer,
+  deleteUser,
+  deleteEvent,
+  deleteRegistration,
+  updateEventCoordinationStatus,
 };

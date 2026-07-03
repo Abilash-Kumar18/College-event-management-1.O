@@ -1,6 +1,8 @@
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
 const Attendance = require('../models/Attendance');
+const { sendRegistrationEmail, sendApprovalEmail } = require('../utils/email');
+const crypto = require('crypto');
 
 // @desc    Get all events (public / with filters)
 // @route   GET /api/events
@@ -24,11 +26,29 @@ const getEvents = async (req, res, next) => {
       query.status = req.query.status;
     }
 
+    if (!req.query.status && req.query.includeDeleted !== 'true') {
+      query.status = { $ne: 'Deleted' };
+    }
+
     const events = await Event.find(query)
       .populate('createdBy', 'name email role clubName')
+      .populate('requestedFaculty', 'name email role deptYear mobileNumber')
+      .populate('rejectedBy', 'name email role mobileNumber')
+      .populate('deletedBy', 'name email role mobileNumber')
       .sort({ dateTime: req.query.status === 'upcoming' ? 1 : -1 });
 
-    res.status(200).json(events);
+    const eventsWithCount = await Promise.all(events.map(async (event) => {
+      const regCount = await Registration.countDocuments({ 
+        eventId: event._id,
+        status: { $in: ['Registered', 'Checked-in'] }
+      });
+      return {
+        ...event.toObject(),
+        registrationsCount: regCount
+      };
+    }));
+
+    res.status(200).json(eventsWithCount);
   } catch (error) {
     next(error);
   }
@@ -39,9 +59,20 @@ const getEvents = async (req, res, next) => {
 // @access  Public
 const getEventById = async (req, res, next) => {
   try {
-    const event = await Event.findById(req.params.id).populate('createdBy', 'name email role clubName');
+    const event = await Event.findById(req.params.id)
+      .populate('createdBy', 'name email role clubName')
+      .populate('requestedFaculty', 'name email role deptYear mobileNumber')
+      .populate('rejectedBy', 'name email role mobileNumber')
+      .populate('deletedBy', 'name email role mobileNumber');
     if (event) {
-      res.status(200).json(event);
+      const regCount = await Registration.countDocuments({ 
+        eventId: event._id,
+        status: { $in: ['Registered', 'Checked-in'] }
+      });
+      res.status(200).json({
+        ...event.toObject(),
+        registrationsCount: regCount
+      });
     } else {
       res.status(404);
       throw new Error('Event not found');
@@ -55,7 +86,27 @@ const getEventById = async (req, res, next) => {
 // @route   POST /api/events
 // @access  Private/Organizer/Faculty/Admin
 const createEvent = async (req, res, next) => {
-  const { title, category, organizerDept, dateTime, venue, maxParticipants, posterUrl, description, requestedFaculty } = req.body;
+  const { 
+    title, 
+    category, 
+    organizerDept, 
+    dateTime, 
+    venue, 
+    maxParticipants, 
+    posterUrl, 
+    description, 
+    requestedFaculty, 
+    clubName,
+    mode,
+    registrationType,
+    priceType,
+    upiNumber,
+    entryFee,
+    fromDate,
+    toDate,
+    studentCoordinators,
+    facultyContact
+  } = req.body;
 
   try {
     if (!title || !category || !organizerDept || !dateTime || !venue || !maxParticipants) {
@@ -67,6 +118,7 @@ const createEvent = async (req, res, next) => {
       title,
       category,
       organizerDept,
+      clubName: clubName || category,
       dateTime,
       venue,
       maxParticipants,
@@ -75,6 +127,15 @@ const createEvent = async (req, res, next) => {
       createdBy: req.user._id,
       status: 'Pending Review',
       requestedFaculty,
+      mode,
+      registrationType,
+      priceType,
+      upiNumber,
+      entryFee: entryFee || 0,
+      fromDate,
+      toDate,
+      studentCoordinators,
+      facultyContact
     });
 
     const createdEvent = await event.save();
@@ -89,14 +150,15 @@ const createEvent = async (req, res, next) => {
 // @access  Private/Student
 const registerForEvent = async (req, res, next) => {
   try {
+    const { collegeName, teamDetails, paymentScreenshot } = req.body;
     const event = await Event.findById(req.params.id);
     if (!event) {
       res.status(404);
       throw new Error('Event not found');
     }
 
-    // Check if event is approved
-    if (event.status !== 'Approved') {
+    // Check if event is approved or upcoming
+    if (!['Approved', 'Upcoming'].includes(event.status)) {
       res.status(400);
       throw new Error('Registration is not open for this event');
     }
@@ -111,19 +173,68 @@ const registerForEvent = async (req, res, next) => {
       throw new Error('Already registered for this event');
     }
 
-    const totalRegistrations = await Registration.countDocuments({ eventId: event._id });
-    if (totalRegistrations >= event.maxParticipants) {
+    const activeRegistrations = await Registration.countDocuments({ 
+      eventId: event._id,
+      status: { $nin: ['Rejected', 'Cancelled'] }
+    });
+    if (activeRegistrations >= event.maxParticipants) {
       res.status(400);
       throw new Error('Event capacity reached');
+    }
+
+    // Paid event check
+    const isPaid = event.priceType === 'paid';
+    if (isPaid && !paymentScreenshot) {
+      res.status(400);
+      throw new Error('Payment screenshot is required for paid events');
+    }
+
+    const regStatus = isPaid ? 'Pending' : 'Registered';
+
+    // Generate unique secure UUID for qrCodeId
+    const qrCodeId = crypto.randomUUID();
+
+    // Generate unique 6-digit ticket ID
+    let sixDigitId;
+    let isUnique = false;
+    while (!isUnique) {
+      sixDigitId = Math.floor(100000 + Math.random() * 900000).toString();
+      const existingId = await Registration.findOne({ sixDigitId });
+      if (!existingId) {
+        isUnique = true;
+      }
     }
 
     const registration = new Registration({
       eventId: event._id,
       studentId: req.user._id,
-      status: 'Registered',
+      status: regStatus,
+      qrCodeId,
+      sixDigitId,
+      collegeName: collegeName || undefined,
+      teamDetails: teamDetails || undefined,
+      paymentScreenshot: paymentScreenshot || undefined,
+      paymentVerified: !isPaid
     });
 
     const savedRegistration = await registration.save();
+
+    // Send confirmation email asynchronously ONLY if free
+    if (regStatus === 'Registered') {
+      try {
+        await sendRegistrationEmail(
+          req.user.email,
+          req.user.name,
+          event.title,
+          event.dateTime,
+          event.venue,
+          sixDigitId
+        );
+      } catch (emailErr) {
+        console.error('Failed to send registration confirmation email:', emailErr.message);
+      }
+    }
+
     res.status(201).json(savedRegistration);
   } catch (error) {
     next(error);
@@ -161,7 +272,22 @@ const updateEventStatus = async (req, res, next) => {
     }
 
     event.status = status;
+    if (status === 'Approved') {
+      event.coordinationStatus = 'Accepted';
+    }
     const updatedEvent = await event.save();
+
+    if (status === 'Approved') {
+      try {
+        await updatedEvent.populate('createdBy', 'name email');
+        if (updatedEvent.createdBy && updatedEvent.createdBy.email) {
+          await sendApprovalEmail(updatedEvent.createdBy.email, updatedEvent.createdBy.name, updatedEvent.title);
+        }
+      } catch (emailErr) {
+        console.error('Failed to send event approval email notification:', emailErr);
+      }
+    }
+
     res.status(200).json(updatedEvent);
   } catch (error) {
     next(error);

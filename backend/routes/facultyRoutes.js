@@ -9,6 +9,10 @@ const {
   createAnnouncement,
   getFacultyReports,
   approveOrganizer,
+  deleteUser,
+  deleteEvent,
+  deleteRegistration,
+  updateEventCoordinationStatus,
 } = require('../controllers/facultyController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
@@ -23,5 +27,9 @@ router.post('/attendance/scan', scanStudentQRPass);
 router.post('/announcements', createAnnouncement);
 router.get('/reports', getFacultyReports);
 router.put('/approve-organizer/:id', approveOrganizer);
+router.delete('/users/:id', deleteUser);
+router.delete('/events/:id', deleteEvent);
+router.delete('/registrations/:id', deleteRegistration);
+router.put('/events/:eventId/coordination', updateEventCoordinationStatus);
 
 module.exports = router;

@@ -81,6 +81,54 @@ const sendRegistrationEmail = async (email, studentName, eventTitle, eventDate, 
   }
 };
 
+const sendApprovalEmail = async (email, organizerName, eventTitle) => {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
+      pass: process.env.SMTP_PASS || 'ethereal.pass',
+    },
+  });
+
+  const fromName = process.env.SMTP_FROM_NAME || 'College Event Management';
+  const fromEmail = process.env.SMTP_FROM_EMAIL || 'noreply@collegeevents.com';
+
+  const mailOptions = {
+    from: `"${fromName}" <${fromEmail}>`,
+    to: email,
+    subject: `Event Approved: ${eventTitle}`,
+    text: `Hello ${organizerName},\n\nWe are pleased to inform you that your proposed event "${eventTitle}" has been approved by the Faculty.\n\nStudents can now register for the event on the website.\n\nBest regards,\nCollege Event Management`,
+    html: `
+      <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px; max-width: 600px; margin: auto;">
+        <h2 style="color: #4CAF50; border-bottom: 2px solid #4CAF50; padding-bottom: 10px;">Event Approved!</h2>
+        <p>Hello <strong>${organizerName}</strong>,</p>
+        <p>We are pleased to inform you that your proposed event <strong>${eventTitle}</strong> has been approved by the Faculty.</p>
+        <p>Students can now register for the event on the portal.</p>
+        <p style="color: #777; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;">
+          This is an automated notification. Please do not reply directly to this email.
+        </p>
+      </div>
+    `,
+  };
+
+  console.log(`\n--- [SIMULATED APPROVAL EMAIL SENT] ---`);
+  console.log(`To: ${email}`);
+  console.log(`Organizer: ${organizerName}`);
+  console.log(`Event: ${eventTitle}`);
+  console.log(`---------------------------------------\n`);
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return info;
+  } catch (error) {
+    console.warn(`Nodemailer connection warning: ${error.message}. Approval email logged to console.`);
+    return { messageId: 'simulated-approval-id' };
+  }
+};
+
 module.exports = {
   sendRegistrationEmail,
+  sendApprovalEmail,
 };

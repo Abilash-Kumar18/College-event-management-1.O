@@ -1,24 +1,24 @@
-/* Dashboard Stylesheet — Leaf Green-White Brand Palette */
+/* Dashboard Stylesheet — Slate Green Light Theme */
 
 :root {
-  --dash-bg:          #faf9fe;
-  --dash-bg-soft:     #f5f3ff;
+  --dash-bg:          #f8fafc;
+  --dash-bg-soft:     #ffffff;
   --dash-card-bg:     #ffffff;
   --dash-sidebar-bg:  #ffffff;
-  --dash-border:      #e5e7eb;
-  --dash-border-hover:#c4b5fd;
-  --dash-text:        #1f2937;
-  --dash-text-muted:  #4b5563;
+  --dash-border:      #e2e8f0;
+  --dash-border-hover:#cbd5e1;
+  --dash-text:        #0f172a;
+  --dash-text-muted:  #64748b;
 
   /* Primary green */
-  --dash-green:        #22c55e;
-  --dash-green-light:  rgba(124, 58, 237, 0.08);
-  --dash-green-hover:  #16a34a;
+  --dash-green:        #10b981;
+  --dash-green-light:  rgba(16, 185, 129, 0.06);
+  --dash-green-hover:  #059669;
 
   /* Accents */
-  --dash-accent:      #4ade80;
-  --dash-accent-mid:  #15803d;
-  --dash-gradient:    linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+  --dash-accent:      #34d399;
+  --dash-accent-mid:  #047857;
+  --dash-gradient:    linear-gradient(135deg, #10b981 0%, #34d399 100%);
 }
 
 .dashboard-container {
@@ -26,7 +26,7 @@
   min-height: 100vh;
   background-color: var(--dash-bg);
   color: var(--dash-text);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   position: relative;
 }
 

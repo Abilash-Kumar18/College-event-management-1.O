@@ -1,5 +1,5 @@
 /* ============================================================
-   StudentSignUp Page — Leaf Green-White Brand Palette
+   StudentSignUp Page — Premium Light Green Theme
    ============================================================ */
 
 .signup-container {
@@ -7,21 +7,21 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #faf9fe;
+  background-color: var(--ace-bg, #f8fafc);
   padding: 20px;
   box-sizing: border-box;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .signup-card {
-  background: #ffffff;
+  background: var(--ace-bg-soft, #ffffff);
   width: 100%;
   max-width: 440px;
   border-radius: 16px;
   padding: 36px 32px;
-  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.06), 0 1px 3px rgba(0,0,0,0.02);
-  border: 1px solid #e5e7eb;
-  color: #1f2937;
+  box-shadow: var(--ace-card-shadow, 0 4px 6px -1px rgba(0, 0, 0, 0.05));
+  border: 1px solid var(--ace-border, #e2e8f0);
+  color: var(--ace-text, #0f172a);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -39,7 +39,7 @@
 .header h2 {
   font-size: 24px;
   font-weight: 800;
-  color: #1f2937;
+  color: var(--ace-text, #0f172a);
   margin: 0;
   letter-spacing: -0.5px;
 }
@@ -51,21 +51,21 @@
   transform: translateY(-50%);
   font-size: 24px;
   cursor: pointer;
-  color: #4b5563;
+  color: var(--ace-text-muted, #475569);
   text-decoration: none;
   line-height: 1;
   transition: color 0.2s, transform 0.2s;
 }
 
 .back-arrow:hover {
-  color: #22c55e;
+  color: var(--ace-primary, #10b981);
   transform: translateY(-50%) translateX(-3px);
 }
 
 .signup-form { text-align: left; }
 
 .signup-label {
-  color: #374151;
+  color: var(--ace-text-muted, #475569);
   font-size: 13px;
   font-weight: 600;
   display: block;
@@ -76,23 +76,23 @@
 .signup-input {
   width: 100%;
   padding: 11px 14px;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
+  background-color: var(--ace-bg-soft, #ffffff);
+  border: 1px solid var(--ace-border, #e2e8f0);
   border-radius: 8px;
   margin-bottom: 14px;
   box-sizing: border-box;
   font-size: 14px;
-  color: #1f2937;
+  color: var(--ace-text, #0f172a);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
 }
 
-.signup-input::placeholder { color: #9ca3af; }
+.signup-input::placeholder { color: #94a3b8; }
 
 .signup-input:focus {
   outline: none;
-  border-color: #22c55e;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  border-color: var(--ace-primary, #10b981);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 .password-container { position: relative; }
@@ -108,7 +108,7 @@
   padding: 0;
   opacity: 0.6;
   transition: opacity 0.2s;
-  color: #4b5563;
+  color: var(--ace-text-muted, #475569);
 }
 
 .password-toggle-btn:hover { opacity: 1; }
@@ -116,7 +116,7 @@
 .signup-submit-btn {
   width: 100%;
   padding: 13px;
-  background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+  background: var(--ace-gradient, linear-gradient(135deg, #10b981 0%, #34d399 100%));
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -124,15 +124,15 @@
   cursor: pointer;
   font-size: 15px;
   margin-top: 16px;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
   transition: all 0.2s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
 }
 
 .signup-submit-btn:hover {
   opacity: 0.95;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
 }
 
 .signup-submit-btn:active { transform: translateY(0); }

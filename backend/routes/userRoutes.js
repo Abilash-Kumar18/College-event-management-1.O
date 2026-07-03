@@ -4,7 +4,7 @@ const { getUsers, getProfile, updateProfile } = require('../controllers/userCont
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
 // GET /api/users
-router.get('/', protect, authorizeRoles('faculty', 'admin'), getUsers);
+router.get('/', protect, authorizeRoles('faculty', 'admin', 'organizer'), getUsers);
 
 // GET /api/profile/me
 router.get('/me', protect, getProfile);

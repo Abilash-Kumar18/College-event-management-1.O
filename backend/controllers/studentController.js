@@ -67,6 +67,7 @@ const getBrowseEvents = async (req, res, next) => {
 // @access  Private/Student
 const registerForEvent = async (req, res, next) => {
   const { eventId } = req.params;
+  const { collegeName, teamDetails, paymentScreenshot } = req.body;
   const studentId = req.user._id;
 
   try {
@@ -97,6 +98,15 @@ const registerForEvent = async (req, res, next) => {
       throw new Error('Event capacity reached');
     }
 
+    // Paid event check
+    const isPaid = event.priceType === 'paid';
+    if (isPaid && !paymentScreenshot) {
+      res.status(400);
+      throw new Error('Payment screenshot is required for paid events');
+    }
+
+    const regStatus = isPaid ? 'Pending' : 'Registered';
+
     // Generate unique secure UUID for qrCodeId
     const qrCodeId = crypto.randomUUID();
 
@@ -114,31 +124,40 @@ const registerForEvent = async (req, res, next) => {
     const registration = new Registration({
       studentId,
       eventId,
-      status: 'Registered',
+      status: regStatus,
       qrCodeId,
       sixDigitId,
+      collegeName: collegeName || undefined,
+      teamDetails: teamDetails || undefined,
+      paymentScreenshot: paymentScreenshot || undefined,
+      paymentVerified: !isPaid
     });
 
     await registration.save();
 
-    // Send confirmation email asynchronously
-    try {
-      await sendRegistrationEmail(
-        req.user.email,
-        req.user.name,
-        event.title,
-        event.dateTime,
-        event.venue,
-        sixDigitId
-      );
-    } catch (emailErr) {
-      console.error('Failed to send registration confirmation email:', emailErr.message);
+    // Send confirmation email asynchronously ONLY if registered instantly (free events)
+    if (regStatus === 'Registered') {
+      try {
+        await sendRegistrationEmail(
+          req.user.email,
+          req.user.name,
+          event.title,
+          event.dateTime,
+          event.venue,
+          sixDigitId
+        );
+      } catch (emailErr) {
+        console.error('Failed to send registration confirmation email:', emailErr.message);
+      }
     }
 
     res.status(201).json({
       success: true,
-      message: 'Successfully registered for event. Confirmation email sent.',
+      message: regStatus === 'Pending' 
+        ? 'Registration request submitted. Awaiting payment verification by the organizer.' 
+        : 'Successfully registered for event. Confirmation email sent.',
       sixDigitId,
+      status: regStatus
     });
   } catch (error) {
     next(error);
@@ -189,16 +208,18 @@ const selfScanAttendance = async (req, res, next) => {
       throw new Error('Event not found');
     }
 
-    // Strictly validate event date matches today
-    const eventDate = new Date(event.dateTime);
     const today = new Date();
-    if (
-      eventDate.getFullYear() !== today.getFullYear() ||
-      eventDate.getMonth() !== today.getMonth() ||
-      eventDate.getDate() !== today.getDate()
-    ) {
+    today.setHours(0, 0, 0, 0);
+
+    const start = new Date(event.fromDate || event.dateTime);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(event.toDate || event.dateTime || event.fromDate);
+    end.setHours(23, 59, 59, 999);
+
+    if (today < start || today > end) {
       res.status(400);
-      throw new Error('Attendance check-in is only allowed on the day of the event');
+      throw new Error('Attendance check-in is only allowed on the scheduled event day(s)');
     }
 
     const registration = await Registration.findOne({

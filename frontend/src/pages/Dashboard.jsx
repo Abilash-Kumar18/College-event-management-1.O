@@ -1,9 +1,51 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
-import { eventService, scanService, authService } from '../services/api';
+import { eventService, scanService, authService, studentService, facultyService, announcementService, registrationService } from '../services/api';
 import './Dashboard.css';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
+
+const DEPARTMENTS = [
+  "AERONAUTICAL ENGINEERING",
+  "AGRICULTURAL ENGINEERING",
+  "ARTIFICIAL INTELLIGENCE AND DATA SCIENCE",
+  "AUTOMOBILE ENGINEERING",
+  "BIOCHEMICAL ENGINEERING",
+  "BIOMEDICAL ENGINEERING",
+  "BIOTECHNOLOGY",
+  "CERAMIC TECHNOLOGY",
+  "CHEMICAL ENGINEERING",
+  "CIVIL ENGINEERING",
+  "COMPUTER SCIENCE AND BUSINESS SYSTEMS",
+  "COMPUTER SCIENCE AND ENGINEERING",
+  "COMPUTER SCIENCE AND ENGINEERING (INTERNET OF THINGS)",
+  "ELECTRICAL AND ELECTRONICS ENGINEERING",
+  "ELECTRONICS AND COMMUNICATION ENGINEERING",
+  "ELECTRONICS AND INSTRUMENTATION ENGINEERING",
+  "ENVIRONMENTAL ENGINEERING",
+  "FOOD TECHNOLOGY",
+  "GEOINFORMATICS",
+  "INDUSTRIAL ENGINEERING",
+  "INFORMATION TECHNOLOGY",
+  "LEATHER TECHNOLOGY",
+  "MANUFACTURING ENGINEERING",
+  "MARINE ENGINEERING",
+  "MATERIAL SCIENCE AND ENGINEERING",
+  "MECHANICAL ENGINEERING",
+  "MECHATRONICS ENGINEERING",
+  "METALLURGICAL ENGINEERING",
+  "PETROCHEMICAL ENGINEERING",
+  "PETROLEUM ENGINEERING",
+  "PHARMACEUTICAL TECHNOLOGY",
+  "PRINTING TECHNOLOGY",
+  "PRODUCTION ENGINEERING",
+  "ROBOTICS AND AUTOMATION",
+  "TEXTILE TECHNOLOGY"
+];
 
 // Import local images from assets
+import logoImg from '../assets/images/logo.jpg';
 import hackathonImg from '../assets/images/hackathon.jpg';
 import robotWarsImg from '../assets/images/robot_wars.jpg';
 import culturalFusionImg from '../assets/images/cultural_fusion.jpg';
@@ -12,6 +54,7 @@ import defaultEventImg from '../assets/images/default_event.jpg';
 
 const getEventImage = (event) => {
   if (event.imageUrl) return event.imageUrl;
+  if (event.posterUrl) return event.posterUrl;
   
   const titleLower = (event.title || '').toLowerCase();
   if (titleLower.includes('hack') || titleLower.includes('code') || titleLower.includes('tech') || titleLower.includes('program')) {
@@ -30,92 +73,7 @@ const getEventImage = (event) => {
   return defaultEventImg;
 };
 
-// Default mock events in case backend is empty
-const defaultEvents = [
-  {
-    _id: 'mock_event_1',
-    title: 'Smart Tech Hackathon',
-    description: 'A 24-hour coding marathon where students solve real-world industry challenges using cutting-edge AI and web technologies.',
-    date: '2026-07-15T09:00:00.000Z',
-    location: 'Main Seminar Hall',
-    capacity: 100,
-    clubName: 'Coding Club',
-    organizer: { name: 'Coding Club Coordinator', email: 'coding@college.edu' },
-    imageUrl: hackathonImg
-  },
-  {
-    _id: 'mock_event_2',
-    title: 'Robo Wars 2026',
-    description: 'Design, build, and battle! Watch custom-engineered robots clash in a high-octane battle arena to win the grand cash prize.',
-    date: '2026-07-22T10:00:00.000Z',
-    location: 'College Indoor Stadium',
-    capacity: 60,
-    clubName: 'Robotics Club',
-    organizer: { name: 'Robotics Coordinator', email: 'robotics@college.edu' },
-    imageUrl: robotWarsImg
-  },
-  {
-    _id: 'mock_event_3',
-    title: 'Cultural Fusion 2026',
-    description: 'An evening of music, choreography, and dramatic performances celebrating national heritage and student talent.',
-    date: '2026-08-05T17:00:00.000Z',
-    location: 'Open Air Auditorium',
-    capacity: 600,
-    clubName: 'Arts & Music Club',
-    organizer: { name: 'Cultural Committee', email: 'cultural@college.edu' },
-    imageUrl: culturalFusionImg
-  },
-  {
-    _id: 'mock_event_4',
-    title: 'Web Craft React Workshop',
-    description: 'Learn modern single-page application development using React, Vite, and tailwind. Perfect for beginners and intermediates.',
-    date: '2026-06-10T10:00:00.000Z', // Closed/past event
-    location: 'CSE Department Lab 3',
-    capacity: 40,
-    clubName: 'Web Dev Club',
-    organizer: { name: 'Web Dev Coordinator', email: 'webdev@college.edu' },
-    imageUrl: reactWorkshopImg
-  }
-];
-
-// Default announcements
-const defaultAnnouncements = [
-  {
-    id: 'ann_1',
-    title: 'Smart Tech Hackathon Registrations are Live!',
-    body: 'Register before July 10th to confirm your participation. Team details can be submitted on the event plan tab.',
-    date: '2026-06-25T11:00:00.000Z',
-    author: 'Coding Club'
-  },
-  {
-    id: 'ann_2',
-    title: 'Robo Wars Safety Guidelines',
-    body: 'All participating teams must download and review the mechanical guidelines PDF. Weight inspection starts at 8 AM.',
-    date: '2026-06-24T09:30:00.000Z',
-    author: 'Robotics Club'
-  },
-  {
-    id: 'ann_3',
-    title: 'Web Craft Workshop Certificates Released',
-    body: 'Participants who checked in can now access and download their participation certificates directly from their certificates page.',
-    date: '2026-06-12T16:00:00.000Z',
-    author: 'Web Dev Club'
-  }
-];
-
-// Default Staff
-const defaultStaff = [
-  { id: 'staff_1', name: 'Dr. A. Ramesh', dept: 'Computer Science', role: 'Event Coordinator', email: 'ramesh.cs@college.edu' },
-  { id: 'staff_2', name: 'Mrs. K. Priya', dept: 'Information Technology', role: 'Faculty Advisor', email: 'priya.it@college.edu' },
-  { id: 'staff_3', name: 'Sanjay Kumar', dept: 'Electrical Engineering', role: 'Student Volunteer Head', email: 'sanjay.ee@student.edu' }
-];
-
-// Default Clubs
-const defaultClubs = [
-  { id: 'club_1', name: 'Coding Club', dept: 'CSE & IT', president: 'Abishek R', desc: 'Promoting coding culture through workshops, hackathons, and technical projects.' },
-  { id: 'club_2', name: 'Robotics Club', dept: 'ECE & EEE', president: 'Deepak S', desc: 'Fostering innovation in automation, embedded systems, and robotic systems.' },
-  { id: 'club_3', name: 'Arts & Music Club', dept: 'All Depts', president: 'Sruthi V', desc: 'Bringing out artistic, theatrical, and musical capabilities of college students.' }
-];
+// No mock constants needed, rely on database.
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -155,19 +113,47 @@ export default function Dashboard() {
   const [events, setEvents] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [staff, setStaff] = useState([]);
+  const [facultyList, setFacultyList] = useState([]);
   const [clubs, setClubs] = useState([]);
   const [registrations, setRegistrations] = useState([]);
   const [registeredEventIds, setRegisteredEventIds] = useState([]);
   const [results, setResults] = useState({});
+  const [organizers, setOrganizers] = useState([]);
+  const [selectedOrganizer, setSelectedOrganizer] = useState(null);
+  const [isOrganizerModalOpen, setIsOrganizerModalOpen] = useState(false);
 
   // Loading and Error States
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+
+  const getRegEventId = (reg) => {
+    if (!reg) return '';
+    if (typeof reg.eventId === 'object' && reg.eventId !== null) {
+      return String(reg.eventId._id || reg.eventId.id || '');
+    }
+    return String(reg.eventId || '');
+  };
+
+  const requestConfirm = (title, message, onConfirm) => {
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
+      }
+    });
+  };
 
   // Modals state
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedApprovalEvent, setSelectedApprovalEvent] = useState(null);
   const [isEventDetailModalOpen, setIsEventDetailModalOpen] = useState(false);
+  const [selectedScreenshotReg, setSelectedScreenshotReg] = useState(null);
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState(false);
   const [isAddClubModalOpen, setIsAddClubModalOpen] = useState(false);
   const [isCreateAnnouncementModalOpen, setIsCreateAnnouncementModalOpen] = useState(false);
@@ -178,11 +164,41 @@ export default function Dashboard() {
   const [eventForm, setEventForm] = useState({
     title: '',
     description: '',
-    date: '',
+    fromDate: '',
+    toDate: '',
     location: '',
     capacity: 100,
-    clubName: ''
+    clubName: '',
+    requestedFaculty: '',
+    imageTheme: 'default',
+    mode: 'offline',
+    registrationType: 'solo',
+    priceType: 'free',
+    upiNumber: '',
+    entryFee: 0,
+    posterUrl: ''
   });
+
+  const [studentCoordinators, setStudentCoordinators] = useState([
+    { name: '', regNo: '', dept: '', phone: '' }
+  ]);
+
+  const [isFromDatePickerOpen, setIsFromDatePickerOpen] = useState(false);
+  const [isToDatePickerOpen, setIsToDatePickerOpen] = useState(false);
+
+  const handleAddCoordinator = () => {
+    setStudentCoordinators([...studentCoordinators, { name: '', regNo: '', dept: '', phone: '' }]);
+  };
+
+  const handleRemoveCoordinator = (index) => {
+    setStudentCoordinators(studentCoordinators.filter((_, i) => i !== index));
+  };
+
+  const handleCoordinatorChange = (index, field, val) => {
+    const updated = [...studentCoordinators];
+    updated[index][field] = val;
+    setStudentCoordinators(updated);
+  };
 
   const [staffForm, setStaffForm] = useState({
     name: '',
@@ -206,9 +222,12 @@ export default function Dashboard() {
 
   const [resultForm, setResultForm] = useState({
     eventId: '',
-    firstPlace: '',
-    secondPlace: '',
-    thirdPlace: ''
+    firstPlaceName: '',
+    firstPlaceEmail: '',
+    secondPlaceName: '',
+    secondPlaceEmail: '',
+    thirdPlaceName: '',
+    thirdPlaceEmail: ''
   });
 
   // QR Scan Sim states
@@ -233,8 +252,141 @@ export default function Dashboard() {
   }, [studentRegistrations]);
 
   const approvedRegistrations = useMemo(() => {
-    return studentRegistrations.filter(r => r.status === 'Approved');
+    return studentRegistrations.filter(r => r.status === 'Registered' || r.status === 'Checked-in' || r.status === 'Approved');
   }, [studentRegistrations]);
+
+  // Student camera QR scanning states
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState('');
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+
+  // Dynamically load jsQR CDN script
+  useEffect(() => {
+    if (!document.getElementById('jsqr-script')) {
+      const script = document.createElement('script');
+      script.id = 'jsqr-script';
+      script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  const startScanning = async () => {
+    if (user && user.role === 'student' && !qrScanEventId) {
+      setScanStatus('Please select an event from the dropdown list first.');
+      return;
+    }
+    setIsScanning(true);
+    setScanStatus('Initializing camera...');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', true);
+        videoRef.current.play();
+        setTimeout(() => {
+          if (streamRef.current) {
+            requestAnimationFrame(tickScan);
+          }
+        }, 500);
+      }
+    } catch (err) {
+      console.error(err);
+      setScanStatus('Failed to access camera: ' + err.message);
+      setIsScanning(false);
+    }
+  };
+
+  const stopScanning = () => {
+    setIsScanning(false);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const tickScan = () => {
+    if (!streamRef.current) return;
+    if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+      const canvas = canvasRef.current || document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if (window.jsQR) {
+        const code = window.jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'dontInvert',
+        });
+        if (code) {
+          console.log('Found QR code:', code.data);
+          handleSelfCheckIn(code.data);
+          return;
+        }
+      }
+    }
+    setTimeout(() => {
+      if (streamRef.current) requestAnimationFrame(tickScan);
+    }, 250);
+  };
+
+  const handleSelfCheckIn = async (qrData) => {
+    stopScanning();
+    setScanStatus('Checking in...');
+    try {
+      const targetEvent = events.find(e => e._id === qrData || e.qrCode === qrData || e.title === qrData);
+      if (!targetEvent) {
+        setScanStatus('Invalid Event QR Code.');
+        return;
+      }
+      if (qrScanEventId && String(targetEvent._id) !== String(qrScanEventId)) {
+        const expectedTitle = events.find(e => e._id === qrScanEventId)?.title || '';
+        setScanStatus(`Scanned QR code does not match the selected event "${expectedTitle}".`);
+        return;
+      }
+      const reg = registrations.find(r => String(r.eventId) === String(targetEvent._id) && (String(r.studentId?._id || r.studentId) === String(user._id)));
+      if (!reg) {
+        setScanStatus('You are not registered for this event or your registration is not approved yet.');
+        return;
+      }
+
+      // Front-end date validation
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const start = new Date(targetEvent.fromDate || targetEvent.dateTime);
+      start.setHours(0,0,0,0);
+      const end = new Date(targetEvent.toDate || targetEvent.dateTime || targetEvent.fromDate);
+      end.setHours(23,59,59,999);
+      if (today < start || today > end) {
+        setScanStatus('Attendance check-in is only allowed on the scheduled event day(s).');
+        return;
+      }
+
+      await studentService.selfScan(targetEvent._id);
+
+      const updated = registrations.map(r => {
+        if (r.id === reg.id) {
+          return {
+            ...r,
+            checkedIn: true,
+            status: 'Checked-in',
+            checkInTime: new Date().toISOString()
+          };
+        }
+        return r;
+      });
+      setRegistrations(updated);
+      localStorage.setItem('dash_global_registrations', JSON.stringify(updated));
+
+      setScanStatus(`Successfully checked in for "${targetEvent.title}"!`);
+      setActionSuccess(`Successfully checked in for "${targetEvent.title}"!`);
+    } catch (err) {
+      setScanStatus('Check-in failed: ' + (err.response?.data?.message || err.message));
+    }
+  };
 
   // Sync tab with URL
   useEffect(() => {
@@ -384,96 +536,177 @@ export default function Dashboard() {
         // Fetch events from API
         let apiEvents = [];
         try {
-          apiEvents = await eventService.getAll();
+          apiEvents = await eventService.getAll({ includeDeleted: true });
         } catch (e) {
-          console.warn('Backend API event fetch failed, falling back to default events.', e);
+          console.warn('Backend API event fetch failed.', e);
         }
+        setEvents(apiEvents);
 
-        // Ensure sample events (defaultEvents) are always displayed alongside API events, avoiding duplicates
-        const apiEventIds = new Set(apiEvents.map(e => e._id));
-        const nonDuplicateDefaultEvents = defaultEvents.filter(de => !apiEventIds.has(de._id));
-        const mergedEvents = [...apiEvents, ...nonDuplicateDefaultEvents];
-        setEvents(mergedEvents);
-
-        // Load Persistent local storage data
-        const storedAnn = localStorage.getItem('dash_announcements');
-        if (storedAnn) {
-          setAnnouncements(JSON.parse(storedAnn));
-        } else {
-          localStorage.setItem('dash_announcements', JSON.stringify(defaultAnnouncements));
-          setAnnouncements(defaultAnnouncements);
+        // 1. Fetch announcements from API
+        try {
+          const apiAnnouncements = await announcementService.getAll();
+          const mappedAnn = apiAnnouncements.map(ann => ({
+            id: ann._id,
+            title: ann.title,
+            body: ann.message,
+            date: ann.sentAt || ann.createdAt,
+            author: 'Campus Management'
+          }));
+          setAnnouncements(mappedAnn);
+        } catch (annError) {
+          console.warn('Failed to fetch announcements from API.', annError);
+          const storedAnn = localStorage.getItem('dash_announcements');
+          setAnnouncements(storedAnn ? JSON.parse(storedAnn) : []);
         }
 
         const storedStaff = localStorage.getItem('dash_staff');
         if (storedStaff) {
           setStaff(JSON.parse(storedStaff));
         } else {
-          localStorage.setItem('dash_staff', JSON.stringify(defaultStaff));
-          setStaff(defaultStaff);
+          setStaff([]);
         }
 
+        const dbClubs = [];
+        const seenClubs = new Set();
+        apiEvents.forEach(evt => {
+          const clubKey = (evt.clubName || evt.category || '').trim();
+          if (clubKey && !seenClubs.has(clubKey.toLowerCase())) {
+            seenClubs.add(clubKey.toLowerCase());
+            dbClubs.push({
+              id: evt._id,
+              name: clubKey,
+              dept: evt.organizerDept || 'General',
+              president: evt.createdBy?.name || 'Student Coordinator',
+              desc: `Organizing body for ${evt.title}.`
+            });
+          }
+        });
+        
         const storedClubs = localStorage.getItem('dash_clubs');
+        let localClubs = [];
         if (storedClubs) {
-          setClubs(JSON.parse(storedClubs));
-        } else {
-          localStorage.setItem('dash_clubs', JSON.stringify(defaultClubs));
-          setClubs(defaultClubs);
+          try { localClubs = JSON.parse(storedClubs); } catch(e) {}
         }
+        
+        const combinedClubs = [...dbClubs];
+        localClubs.forEach(lc => {
+          if (!seenClubs.has(lc.name.toLowerCase())) {
+            seenClubs.add(lc.name.toLowerCase());
+            combinedClubs.push(lc);
+          }
+        });
+        setClubs(combinedClubs);
 
         const storedResults = localStorage.getItem('dash_results');
         if (storedResults) {
           setResults(JSON.parse(storedResults));
         }
 
-        // Initialize user registrations list
-        const userRegKey = `dash_registered_${user._id}`;
-        const storedUserRegs = localStorage.getItem(userRegKey);
-        const regIds = storedUserRegs ? JSON.parse(storedUserRegs) : [];
-        setRegisteredEventIds(regIds);
-
-        // Initialize general registrations table list (persisted globally in localStorage)
-        const storedAllRegs = localStorage.getItem('dash_global_registrations');
-        let allRegs = [];
-        if (storedAllRegs) {
-          allRegs = JSON.parse(storedAllRegs);
-        } else {
-          // Prepopulate some default registrations
-          allRegs = [
-            {
-              id: 'reg_default_1',
-              eventId: 'mock_event_1',
-              eventTitle: 'Smart Tech Hackathon',
+        // 2. Fetch registrations based on user role
+        let fetchedRegs = [];
+        try {
+          if (user.role === 'student') {
+            const apiRegs = await studentService.getRegistrations();
+            fetchedRegs = apiRegs.map(r => ({
+              id: r._id,
+              eventId: r.eventId?._id || r.eventId,
+              eventTitle: r.eventId?.title || 'Unknown Event',
               studentId: user._id,
               studentName: user.name,
-              studentReg: user.regNo || '21CSR01',
+              studentReg: user.regNo || 'N/A',
               studentEmail: user.email,
-              date: new Date().toISOString(),
-              status: 'Approved',
-              checkedIn: false
-            },
-            {
-              id: 'reg_default_2',
-              eventId: 'mock_event_4',
-              eventTitle: 'Web Craft React Workshop',
-              studentId: user._id,
-              studentName: user.name,
-              studentReg: user.regNo || '21CSR01',
-              studentEmail: user.email,
-              date: '2026-06-08T10:00:00.000Z',
-              status: 'Approved',
-              checkedIn: true, // Attended
-              checkInTime: '2026-06-10T10:15:00.000Z'
+              date: r.createdAt,
+              status: r.status,
+              checkedIn: r.status === 'Checked-in',
+              checkInTime: r.scanTime
+            }));
+            const regIds = fetchedRegs.map(r => r.eventId);
+            setRegisteredEventIds(regIds);
+            localStorage.setItem(`dash_registered_${user._id}`, JSON.stringify(regIds));
+          } else if (user.role === 'organizer') {
+            const organizerEvents = apiEvents.filter(e => String(e.createdBy?._id || e.createdBy) === String(user._id));
+             for (const evt of organizerEvents) {
+              try {
+                const res = await eventService.getRegistrations(evt._id);
+                const mapped = res.map(r => ({
+                  id: r._id,
+                  eventId: evt._id,
+                  eventTitle: evt.title,
+                  studentId: r.studentId?._id || r.studentId,
+                  studentName: r.studentId?.name || 'Student',
+                  studentReg: r.studentId?.regNo || 'N/A',
+                  studentEmail: r.studentId?.email || '',
+                  date: r.createdAt,
+                  status: r.status,
+                  checkedIn: r.status === 'Checked-in',
+                  checkInTime: r.scanTime,
+                  paymentScreenshot: r.paymentScreenshot,
+                  paymentVerified: r.paymentVerified
+                }));
+                fetchedRegs = [...fetchedRegs, ...mapped];
+              } catch (err) {
+                console.warn(`Failed to fetch organizer registrations for event ${evt._id}`, err);
+              }
             }
-          ];
-          localStorage.setItem('dash_global_registrations', JSON.stringify(allRegs));
-          // Prepopulate registered IDs for active user
-          if (regIds.length === 0) {
-            const initialIds = ['mock_event_1', 'mock_event_4'];
-            localStorage.setItem(userRegKey, JSON.stringify(initialIds));
-            setRegisteredEventIds(initialIds);
+          } else if (user.role === 'faculty' || user.role === 'admin') {
+            for (const evt of apiEvents) {
+              try {
+                const res = await facultyService.getRegistrations(evt._id);
+                const mapped = res.map(r => ({
+                  id: r._id,
+                  eventId: evt._id,
+                  eventTitle: evt.title,
+                  studentId: r.studentId?._id || r.studentId,
+                  studentName: r.studentId?.name || 'Student',
+                  studentReg: r.studentId?.regNo || 'N/A',
+                  studentEmail: r.studentId?.email || '',
+                  date: r.createdAt,
+                  status: r.status,
+                  checkedIn: r.status === 'Checked-in',
+                  checkInTime: r.scanTime,
+                  paymentScreenshot: r.paymentScreenshot,
+                  paymentVerified: r.paymentVerified
+                }));
+                fetchedRegs = [...fetchedRegs, ...mapped];
+              } catch (err) {
+                console.warn(`Failed to fetch faculty registrations for event ${evt._id}`, err);
+              }
+            }
+          }
+          setRegistrations(fetchedRegs);
+          localStorage.setItem('dash_global_registrations', JSON.stringify(fetchedRegs));
+          
+          if (user.role === 'faculty' || user.role === 'admin') {
+            try {
+              const apiOrgs = await facultyService.getOrganizers();
+              setOrganizers(apiOrgs || []);
+            } catch (orgError) {
+              console.warn('Failed to fetch organizers from API', orgError);
+            }
+          }
+
+          if (user.role === 'organizer' || user.role === 'faculty' || user.role === 'admin') {
+            try {
+              const apiFac = await facultyService.getFacultyList();
+              setFacultyList(apiFac || []);
+            } catch (facError) {
+              console.warn('Failed to fetch faculty from API', facError);
+            }
+          }
+        } catch (regErr) {
+          console.warn('Failed to fetch registrations from API, falling back to localStorage.', regErr);
+          const userRegKey = `dash_registered_${user._id}`;
+          const storedUserRegs = localStorage.getItem(userRegKey);
+          const regIds = storedUserRegs ? JSON.parse(storedUserRegs) : [];
+          setRegisteredEventIds(regIds);
+
+          const storedAllRegs = localStorage.getItem('dash_global_registrations');
+          if (storedAllRegs) {
+            setRegistrations(JSON.parse(storedAllRegs));
+          } else {
+            setRegistrations([]);
           }
         }
-        setRegistrations(allRegs);
 
       } catch (err) {
         setError('Error loading dashboard data. Please try again.');
@@ -484,7 +717,7 @@ export default function Dashboard() {
     };
 
     loadData();
-  }, [user]);
+  }, [user, refreshTrigger]);
 
   // Alert dismiss timers
   useEffect(() => {
@@ -493,6 +726,30 @@ export default function Dashboard() {
       return () => clearTimeout(timer);
     }
   }, [actionSuccess]);
+
+  // Lock scroll when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = 
+      isEventDetailModalOpen || 
+      !!selectedApprovalEvent || 
+      isAddStaffModalOpen || 
+      isAddClubModalOpen || 
+      isCreateAnnouncementModalOpen || 
+      isResultEntryModalOpen || 
+      isOrganizerModalOpen || 
+      confirmDialog.isOpen || 
+      !!selectedOrganizer;
+
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isEventDetailModalOpen, selectedApprovalEvent, isAddStaffModalOpen, isAddClubModalOpen, isCreateAnnouncementModalOpen, isResultEntryModalOpen, isOrganizerModalOpen, confirmDialog.isOpen, selectedOrganizer]);
 
   if (!user) return null;
 
@@ -548,27 +805,264 @@ export default function Dashboard() {
     }
   };
 
+  // Faculty Actions: Delete/Remove Student, Organizer, Event, or Registration
+  const handleDeleteUser = (userId, roleToDelete) => {
+    const roleLabel = roleToDelete === 'student' ? 'Student' : 'Organizer';
+    const confirmMessage = roleToDelete === 'organizer' 
+      ? "Are you sure you want to permanently delete this organizer account? All events created by this organizer will also be removed. This action cannot be undone."
+      : "Are you sure you want to permanently delete this student account and remove all their access? This action cannot be undone.";
+    
+    requestConfirm(`Confirm Revoke Access`, confirmMessage, async () => {
+      setLoading(true);
+      try {
+        await facultyService.deleteUser(userId);
+        setRefreshTrigger(prev => prev + 1);
+        setActionSuccess(`${roleLabel} account and associated data removed successfully.`);
+      } catch (err) {
+        setError(err.message || `Failed to delete ${roleLabel} account.`);
+      } finally {
+        setLoading(false);
+      }
+    });
+  };
+
+  const handleDeleteEvent = (eventId) => {
+    requestConfirm("Confirm Delete Event", "Are you sure you want to permanently delete this event and all student registrations associated with it? This action cannot be undone.", async () => {
+      setLoading(true);
+      try {
+        await facultyService.deleteEvent(eventId);
+        setRefreshTrigger(prev => prev + 1);
+        setActionSuccess("Event deleted successfully.");
+      } catch (err) {
+        setError(err.message || "Failed to delete event.");
+      } finally {
+        setLoading(false);
+      }
+    });
+  };
+
+  const handleDeleteRegistration = (regId) => {
+    requestConfirm("Confirm Delete Registration", "Are you sure you want to delete this event registration record? This action cannot be undone.", async () => {
+      setLoading(true);
+      try {
+        await facultyService.deleteRegistration(regId);
+        setRefreshTrigger(prev => prev + 1);
+        setActionSuccess("Registration deleted successfully.");
+      } catch (err) {
+        setError(err.message || "Failed to delete registration.");
+      } finally {
+        setLoading(false);
+      }
+    });
+  };
+
   // Organizer Actions: Create/Publish Event
   const handleCreateEvent = async (e) => {
     e.preventDefault();
     setError('');
     setActionSuccess('');
 
-    if (!eventForm.title || !eventForm.description || !eventForm.date || !eventForm.location || !eventForm.clubName) {
-      setError('Please fill in all fields.');
+    const form = e.target;
+
+    // Check basic HTML5 validity
+    if (!form.checkValidity()) {
+      form.reportValidity();
       return;
     }
 
+    // Constraints & Validations
+    const titleInput = form.querySelector('input[placeholder*="Event name"]') || form.querySelector('input[placeholder*="event name"]');
+    if (titleInput) {
+      if (eventForm.title.length >= 50) {
+        titleInput.setCustomValidity('Event title must be less than 50 characters.');
+        titleInput.reportValidity();
+        titleInput.focus();
+        return;
+      }
+      if (/^\d+$/.test(eventForm.title)) {
+        titleInput.setCustomValidity('Event title cannot contain only numbers.');
+        titleInput.reportValidity();
+        titleInput.focus();
+        return;
+      }
+      titleInput.setCustomValidity('');
+    }
+
+    const clubInput = form.querySelector('input[placeholder*="Coding Club"]') || form.querySelector('input[placeholder*="coding club"]');
+    if (clubInput) {
+      if (/\d/.test(eventForm.clubName)) {
+        clubInput.setCustomValidity('Organizing Club name cannot contain numbers.');
+        clubInput.reportValidity();
+        clubInput.focus();
+        return;
+      }
+      clubInput.setCustomValidity('');
+    }
+
+    const now = new Date();
+    const start = new Date(eventForm.fromDate);
+    const end = new Date(eventForm.toDate);
+
+    if (start < now) {
+      alert('Event starting date/time cannot be in the past.');
+      return;
+    }
+    if (start >= end) {
+      alert('Event ending date/time must be after starting date/time.');
+      return;
+    }
+
+    // Untime checking (10 PM to 6 AM)
+    const startHour = start.getHours();
+    const endHour = end.getHours();
+    if ((startHour >= 22 || startHour < 6) || (endHour >= 22 || endHour < 6)) {
+      alert('Events cannot start or end between 10:00 PM and 6:00 AM (untime hours).');
+      return;
+    }
+
+    // Capacity limit (Max 1000 seats validation)
+    const capVal = parseInt(eventForm.capacity, 10);
+    const capInput = form.querySelector('input[type="number"]') || form.querySelector('input[placeholder*="Capacity"]');
+    if (capInput) {
+      if (isNaN(capVal) || capVal < 1 || capVal > 1000) {
+        capInput.setCustomValidity("Capacity Limit must be between 1 and 1000 seats.");
+        capInput.reportValidity();
+        capInput.focus();
+        return;
+      }
+      capInput.setCustomValidity('');
+    }
+
+    // Paid fields check
+    if (eventForm.priceType === 'paid') {
+      const upiInput = form.querySelector('input[placeholder*="UPI ID"]') || form.querySelector('input[placeholder*="UPI ID/Number"]');
+      if (upiInput) {
+        const isUpiIdValid = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(eventForm.upiNumber);
+        const isUpiPhoneValid = /^\d{10}$/.test(eventForm.upiNumber);
+        if (!isUpiIdValid && !isUpiPhoneValid) {
+          upiInput.setCustomValidity('Please provide a valid UPI ID (e.g., username@bank) or a 10-digit phone number for payment.');
+          upiInput.reportValidity();
+          upiInput.focus();
+          return;
+        }
+        upiInput.setCustomValidity('');
+      }
+
+      const feeInput = form.querySelector('input[placeholder*="Amount in ₹"]');
+      if (feeInput) {
+        if (eventForm.entryFee <= 0) {
+          feeInput.setCustomValidity('Entry fee must be greater than zero for paid events.');
+          feeInput.reportValidity();
+          feeInput.focus();
+          return;
+        }
+        feeInput.setCustomValidity('');
+      }
+    }
+
+    // Validate student coordinators
+    const scNameRegex = /^[a-zA-Z\s]+$/;
+    const scRegNoRegex = /^\d+$/;
+    const scPhoneRegex = /^\d{10}$/;
+
+    const coordinatorInputs = form.querySelectorAll('input[placeholder="Student Name"]');
+    const regNoInputs = form.querySelectorAll('input[placeholder="Registration No"]');
+    const phoneInputs = form.querySelectorAll('input[placeholder="Phone Number"]');
+
+    for (let i = 0; i < studentCoordinators.length; i++) {
+      const c = studentCoordinators[i];
+      const isAnyFieldFilled = c.name.trim() || c.regNo.trim() || c.dept.trim() || c.phone.trim();
+      
+      if (studentCoordinators.length > 1 || isAnyFieldFilled) {
+        if (!c.name.trim()) {
+          if (coordinatorInputs[i]) {
+            coordinatorInputs[i].setCustomValidity(`Please fill in all details for Student Coordinator ${i + 1}.`);
+            coordinatorInputs[i].reportValidity();
+            coordinatorInputs[i].focus();
+          }
+          return;
+        }
+        if (!scNameRegex.test(c.name)) {
+          if (coordinatorInputs[i]) {
+            coordinatorInputs[i].setCustomValidity(`Student Coordinator ${i + 1} name must contain only letters and spaces.`);
+            coordinatorInputs[i].reportValidity();
+            coordinatorInputs[i].focus();
+          }
+          return;
+        } else if (coordinatorInputs[i]) {
+          coordinatorInputs[i].setCustomValidity('');
+        }
+
+        if (!c.regNo.trim()) {
+          if (regNoInputs[i]) {
+            regNoInputs[i].setCustomValidity(`Please fill in all details for Student Coordinator ${i + 1}.`);
+            regNoInputs[i].reportValidity();
+            regNoInputs[i].focus();
+          }
+          return;
+        }
+        if (!scRegNoRegex.test(c.regNo)) {
+          if (regNoInputs[i]) {
+            regNoInputs[i].setCustomValidity(`Student Coordinator ${i + 1} registration number must contain only numbers.`);
+            regNoInputs[i].reportValidity();
+            regNoInputs[i].focus();
+          }
+          return;
+        } else if (regNoInputs[i]) {
+          regNoInputs[i].setCustomValidity('');
+        }
+
+        if (!c.phone.trim()) {
+          if (phoneInputs[i]) {
+            phoneInputs[i].setCustomValidity(`Please fill in all details for Student Coordinator ${i + 1}.`);
+            phoneInputs[i].reportValidity();
+            phoneInputs[i].focus();
+          }
+          return;
+        }
+        if (!scPhoneRegex.test(c.phone)) {
+          if (phoneInputs[i]) {
+            phoneInputs[i].setCustomValidity(`Student Coordinator ${i + 1} phone number must be exactly 10 digits.`);
+            phoneInputs[i].reportValidity();
+            phoneInputs[i].focus();
+          }
+          return;
+        } else if (phoneInputs[i]) {
+          phoneInputs[i].setCustomValidity('');
+        }
+      }
+    }
+
     try {
+      let resolvedPosterUrl = '';
+      if (eventForm.posterUrl) resolvedPosterUrl = eventForm.posterUrl;
+      else if (eventForm.imageTheme === 'hackathon') resolvedPosterUrl = hackathonImg;
+      else if (eventForm.imageTheme === 'robotics') resolvedPosterUrl = robotWarsImg;
+      else if (eventForm.imageTheme === 'cultural') resolvedPosterUrl = culturalFusionImg;
+      else if (eventForm.imageTheme === 'workshop') resolvedPosterUrl = reactWorkshopImg;
+      else resolvedPosterUrl = defaultEventImg;
+
       let createdEvent = null;
-      // 1. Try backend API save
       try {
         createdEvent = await eventService.create({
           title: eventForm.title,
           description: eventForm.description,
-          date: new Date(eventForm.date).toISOString(),
-          location: eventForm.location,
-          capacity: parseInt(eventForm.capacity) || 100
+          dateTime: start.toISOString(),
+          venue: eventForm.location,
+          maxParticipants: parseInt(eventForm.capacity) || 100,
+          category: eventForm.clubName,
+          organizerDept: user.deptYear || 'General',
+          clubName: eventForm.clubName,
+          requestedFaculty: eventForm.requestedFaculty || undefined,
+          posterUrl: resolvedPosterUrl,
+          mode: eventForm.mode,
+          registrationType: eventForm.registrationType,
+          priceType: eventForm.priceType,
+          upiNumber: eventForm.priceType === 'paid' ? eventForm.upiNumber : undefined,
+          entryFee: eventForm.priceType === 'paid' ? eventForm.entryFee : 0,
+          fromDate: start.toISOString(),
+          toDate: end.toISOString(),
+          studentCoordinators: studentCoordinators.filter(c => c.name.trim() !== ''),
         });
       } catch (err) {
         console.warn('Backend API event creation failed. Simulating local event creation.', err);
@@ -580,15 +1074,26 @@ export default function Dashboard() {
           _id: `event_${Date.now()}`,
           title: eventForm.title,
           description: eventForm.description,
-          date: new Date(eventForm.date).toISOString(),
+          date: start.toISOString(),
           location: eventForm.location,
           capacity: parseInt(eventForm.capacity) || 100,
           clubName: eventForm.clubName,
+          posterUrl: resolvedPosterUrl,
+          mode: eventForm.mode,
+          registrationType: eventForm.registrationType,
+          priceType: eventForm.priceType,
+          upiNumber: eventForm.priceType === 'paid' ? eventForm.upiNumber : undefined,
+          fromDate: start.toISOString(),
+          toDate: end.toISOString(),
+          studentCoordinators: studentCoordinators.filter(c => c.name.trim() !== ''),
+          facultyContact: eventForm.facultyContact,
           organizer: { name: user.name, email: user.email }
         };
       } else {
-        // Enrich from form inputs
-        createdEvent.clubName = eventForm.clubName;
+        // Map backend properties back to frontend properties
+        createdEvent.date = createdEvent.dateTime;
+        createdEvent.location = createdEvent.venue;
+        createdEvent.capacity = createdEvent.maxParticipants;
       }
 
       const updatedEvents = [createdEvent, ...events];
@@ -596,8 +1101,24 @@ export default function Dashboard() {
       // Persist created events in localStorage if running completely offline
       localStorage.setItem('dash_custom_events', JSON.stringify(updatedEvents));
 
-      setActionSuccess(`Successfully created event "${eventForm.title}"!`);
-      setEventForm({ title: '', description: '', date: '', location: '', capacity: 100, clubName: user.clubName || '' });
+      setActionSuccess(`Successfully submitted event proposal "${eventForm.title}" for approval!`);
+      setEventForm({
+        title: '',
+        description: '',
+        fromDate: '',
+        toDate: '',
+        location: '',
+        capacity: 100,
+        clubName: user.clubName || '',
+        requestedFaculty: '',
+        imageTheme: 'default',
+        mode: 'offline',
+        registrationType: 'solo',
+        priceType: 'free',
+        upiNumber: '',
+        facultyContact: ''
+      });
+      setStudentCoordinators([{ name: '', regNo: '', dept: '', phone: '' }]);
       setCurrentTab('home'); // Go back to main dashboard
     } catch (err) {
       setError(err.message || 'Failed to create event. Make sure you are authorized.');
@@ -605,16 +1126,85 @@ export default function Dashboard() {
   };
 
   // Organizer: Approve / Reject Student Registration
-  const handleUpdateRegistrationStatus = (regId, status) => {
-    const updated = registrations.map(reg => {
-      if (reg.id === regId) {
-        return { ...reg, status };
+  const handleUpdateRegistrationStatus = async (regId, status) => {
+    setError('');
+    setActionSuccess('');
+    try {
+      if (regId && !String(regId).startsWith('reg_')) {
+        await registrationService.updateStatus(regId, status);
       }
-      return reg;
-    });
-    setRegistrations(updated);
-    localStorage.setItem('dash_global_registrations', JSON.stringify(updated));
-    setActionSuccess(`Registration status updated to ${status}.`);
+      const updated = registrations.map(reg => {
+        if (reg.id === regId) {
+          return { ...reg, status, checkedIn: status === 'Checked-in' };
+        }
+        return reg;
+      });
+      setRegistrations(updated);
+      localStorage.setItem('dash_global_registrations', JSON.stringify(updated));
+      setActionSuccess(`Registration status updated to ${status}.`);
+    } catch (err) {
+      setError(err.message || 'Failed to update registration status');
+    }
+  };
+
+  // Faculty: Approve / Reject Event Request
+  const handleApproveRejectEvent = async (eventId, newStatus) => {
+    setError('');
+    setActionSuccess('');
+    try {
+      let updatedEvent = null;
+      if (eventId && !String(eventId).startsWith('event_')) {
+        const response = await facultyService.updateEventStatus(eventId, newStatus);
+        updatedEvent = response.event;
+      }
+      const updated = events.map(evt => {
+        if (evt._id === eventId) {
+          return updatedEvent ? { ...evt, ...updatedEvent } : { ...evt, status: newStatus };
+        }
+        return evt;
+      });
+      setEvents(updated);
+      setActionSuccess(`Event successfully ${newStatus === 'Approved' ? 'approved' : 'rejected'}!`);
+    } catch (err) {
+      setError(err.message || 'Failed to update event approval status');
+    }
+  };
+
+  const handleUpdateCoordination = async (eventId, status) => {
+    setError('');
+    setActionSuccess('');
+    setLoading(true);
+    try {
+      await facultyService.updateCoordinationStatus(eventId, status);
+      setRefreshTrigger(prev => prev + 1);
+      setActionSuccess(`Coordination request successfully ${status.toLowerCase()}!`);
+    } catch (err) {
+      setError(err.message || 'Failed to update coordination status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Faculty: Approve Organizer Account
+  const handleApproveOrganizer = async (organizerId) => {
+    setError('');
+    setActionSuccess('');
+    try {
+      await facultyService.approveOrganizer(organizerId);
+      const updated = organizers.map(org => {
+        if (org._id === organizerId) {
+          return { ...org, isApproved: true };
+        }
+        return org;
+      });
+      setOrganizers(updated);
+      setActionSuccess('Organizer approved successfully!');
+      if (selectedOrganizer && selectedOrganizer._id === organizerId) {
+        setSelectedOrganizer(prev => ({ ...prev, isApproved: true }));
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to approve organizer');
+    }
   };
 
   // Organizer: Add Staff
@@ -656,46 +1246,86 @@ export default function Dashboard() {
   };
 
   // Organizer: Create Announcement
-  const handleCreateAnnouncement = (e) => {
+  const handleCreateAnnouncement = async (e) => {
     e.preventDefault();
     if (!announcementForm.title || !announcementForm.body) {
       setError('Please provide announcement title and content.');
       return;
     }
-    const newAnn = {
-      id: `ann_${Date.now()}`,
-      title: announcementForm.title,
-      body: announcementForm.body,
-      date: new Date().toISOString(),
-      author: announcementForm.author || user.name
-    };
-    const updated = [newAnn, ...announcements];
-    setAnnouncements(updated);
-    localStorage.setItem('dash_announcements', JSON.stringify(updated));
-    setAnnouncementForm({ title: '', body: '', author: '' });
-    setIsCreateAnnouncementModalOpen(false);
-    setActionSuccess('New announcement published successfully!');
+    try {
+      let created = null;
+      try {
+        created = await announcementService.create({
+          title: announcementForm.title,
+          message: announcementForm.body,
+          audience: 'all'
+        });
+      } catch (err) {
+        console.warn('API announcement creation failed. Simulating locally.', err);
+      }
+
+      const newAnn = {
+        id: created?._id || `ann_${Date.now()}`,
+        title: announcementForm.title,
+        body: announcementForm.body,
+        date: created?.sentAt || new Date().toISOString(),
+        author: announcementForm.author || user.name
+      };
+
+      const updated = [newAnn, ...announcements];
+      setAnnouncements(updated);
+      localStorage.setItem('dash_announcements', JSON.stringify(updated));
+      setAnnouncementForm({ title: '', body: '', author: '' });
+      setIsCreateAnnouncementModalOpen(false);
+      setActionSuccess('New announcement published successfully!');
+    } catch (err) {
+      setError(err.message || 'Failed to publish announcement');
+    }
   };
 
   // Organizer: Result Entry
   const handleAddResult = (e) => {
     e.preventDefault();
-    if (!resultForm.eventId || !resultForm.firstPlace) {
-      setError('Please select an event and fill at least the first place winner.');
+    if (!resultForm.eventId || !resultForm.firstPlaceName || !resultForm.firstPlaceEmail) {
+      setError('Please select an event and fill at least the first place winner name and email.');
       return;
     }
+
+    // Email validation
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|ksrce\.ac\.in)$/;
+    if (!emailRegex.test(resultForm.firstPlaceEmail)) {
+      setError('First place email must be a valid @gmail.com or @ksrce.ac.in address.');
+      return;
+    }
+    if (resultForm.secondPlaceName && resultForm.secondPlaceEmail && !emailRegex.test(resultForm.secondPlaceEmail)) {
+      setError('Second place email must be a valid @gmail.com or @ksrce.ac.in address.');
+      return;
+    }
+    if (resultForm.thirdPlaceName && resultForm.thirdPlaceEmail && !emailRegex.test(resultForm.thirdPlaceEmail)) {
+      setError('Third place email must be a valid @gmail.com or @ksrce.ac.in address.');
+      return;
+    }
+
     const updatedResults = {
       ...results,
       [resultForm.eventId]: {
-        firstPlace: resultForm.firstPlace,
-        secondPlace: resultForm.secondPlace,
-        thirdPlace: resultForm.thirdPlace,
+        firstPlace: `${resultForm.firstPlaceName} (${resultForm.firstPlaceEmail})`,
+        secondPlace: resultForm.secondPlaceName ? `${resultForm.secondPlaceName} (${resultForm.secondPlaceEmail})` : '',
+        thirdPlace: resultForm.thirdPlaceName ? `${resultForm.thirdPlaceName} (${resultForm.thirdPlaceEmail})` : '',
         datePublished: new Date().toISOString()
       }
     };
     setResults(updatedResults);
     localStorage.setItem('dash_results', JSON.stringify(updatedResults));
-    setResultForm({ eventId: '', firstPlace: '', secondPlace: '', thirdPlace: '' });
+    setResultForm({
+      eventId: '',
+      firstPlaceName: '',
+      firstPlaceEmail: '',
+      secondPlaceName: '',
+      secondPlaceEmail: '',
+      thirdPlaceName: '',
+      thirdPlaceEmail: ''
+    });
     setIsResultEntryModalOpen(false);
     setActionSuccess('Event results published successfully!');
   };
@@ -730,6 +1360,24 @@ export default function Dashboard() {
         message: 'Attendee registration is pending or rejected.'
       });
       return;
+    }
+
+    // Verify date constraint
+    const ev = events.find(e => e._id === targetEventId);
+    if (ev) {
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const start = new Date(ev.fromDate || ev.dateTime);
+      start.setHours(0,0,0,0);
+      const end = new Date(ev.toDate || ev.dateTime || ev.fromDate);
+      end.setHours(23,59,59,999);
+      if (today < start || today > end) {
+        setQrScanResult({
+          success: false,
+          message: 'Attendance check-in is only allowed on the scheduled event day(s).'
+        });
+        return;
+      }
     }
 
     if (reg.checkedIn) {
@@ -769,26 +1417,167 @@ export default function Dashboard() {
   };
 
   // Toggle checkedIn manual checklist state
-  const handleToggleAttendanceCheck = (regId) => {
-    const updated = registrations.map(r => {
-      if (r.id === regId) {
-        const isChecked = !r.checkedIn;
-        return {
-          ...r,
-          checkedIn: isChecked,
-          checkInTime: isChecked ? new Date().toISOString() : undefined
-        };
+  const handleToggleAttendanceCheck = async (regId) => {
+    setError('');
+    setActionSuccess('');
+    const reg = registrations.find(r => r.id === regId);
+    if (!reg) return;
+
+    const isChecked = !reg.checkedIn;
+    const newStatus = isChecked ? 'Checked-in' : 'Approved';
+
+    try {
+      if (regId && !String(regId).startsWith('reg_')) {
+        await registrationService.updateStatus(regId, newStatus);
       }
-      return r;
-    });
-    setRegistrations(updated);
-    localStorage.setItem('dash_global_registrations', JSON.stringify(updated));
-    setActionSuccess('Attendance status updated.');
+      const updated = registrations.map(r => {
+        if (r.id === regId) {
+          return {
+            ...r,
+            checkedIn: isChecked,
+            status: newStatus,
+            checkInTime: isChecked ? new Date().toISOString() : undefined
+          };
+        }
+        return r;
+      });
+      setRegistrations(updated);
+      localStorage.setItem('dash_global_registrations', JSON.stringify(updated));
+      setActionSuccess('Attendance status updated.');
+    } catch (err) {
+      setError(err.message || 'Failed to update attendance status');
+    }
   };
 
-  // Export report simulated trigger
+  // Export report XLSX trigger using SheetJS
   const handleExportReport = (format) => {
-    setActionSuccess(`Compiling statistics... File "College_Event_Report_${Date.now()}.${format}" generated and downloading.`);
+    if (format !== 'xlsx') {
+      setActionSuccess(`Compiling statistics... File "College_Event_Report_${Date.now()}.${format}" generated and downloading.`);
+      return;
+    }
+
+    try {
+      setError('');
+      setActionSuccess('');
+
+      // Find events to export
+      const eventsToExport = qrScanEventId 
+        ? events.filter(e => e._id === qrScanEventId)
+        : events;
+
+      if (eventsToExport.length === 0) {
+        setError('No events found to export.');
+        return;
+      }
+
+      // Create a new Workbook
+      const wb = XLSX.utils.book_new();
+
+      eventsToExport.forEach((ev) => {
+        // Find registrations for this event
+        const eventRegs = registrations.filter(r => r.eventId === ev._id);
+
+        const organizerName = ev.organizer?.name || ev.createdBy?.name || 'N/A';
+        const organizerMail = ev.organizer?.email || ev.createdBy?.email || 'N/A';
+        const dateStr = formatDate(ev.date || ev.dateTime);
+
+        // Header info matching requirements
+        const headerInfo = [
+          [`Event Name:`, ev.title],
+          [`Date:`, dateStr],
+          [`Organizer Name:`, organizerName, `Organizer Email:`, organizerMail],
+          [], // Blank row spacing
+          [`S NO`, `Student Name`, `Email`, `Dept`, `College`, `Paid Status`, `Attendance`]
+        ];
+
+        const attendedRows = [];
+        const notAttendedRows = [];
+
+        eventRegs.forEach((reg, index) => {
+          const isAttended = reg.checkedIn || reg.status === 'Checked-in';
+          const studentName = reg.studentName || reg.studentId?.name || 'N/A';
+          const studentEmail = reg.studentEmail || reg.studentId?.email || 'N/A';
+          const studentDept = reg.studentDept || reg.studentId?.deptYear || 'N/A';
+          const studentCollege = reg.studentCollege || 'K.S.R. College Of Engineering';
+          const paidStatus = reg.isPaid || reg.paid ? 'Paid' : 'Not Paid';
+          const attendanceVal = isAttended ? 'Yes' : 'No';
+
+          const rowData = [
+            index + 1,
+            studentName,
+            studentEmail,
+            studentDept,
+            studentCollege,
+            paidStatus,
+            attendanceVal
+          ];
+
+          if (isAttended) {
+            attendedRows.push(rowData);
+          } else {
+            notAttendedRows.push(rowData);
+          }
+        });
+
+        // Sheet 1: Attended / All registrations
+        // Re-number index for sequential display
+        const allAttendedMapped = attendedRows.map((row, idx) => {
+          const r = [...row];
+          r[0] = idx + 1;
+          return r;
+        });
+        const allRegisteredData = [...headerInfo, ...allAttendedMapped];
+        const wsAll = XLSX.utils.aoa_to_sheet(allRegisteredData);
+
+        // Sheet 2: Not Attended
+        const notAttendedHeaderInfo = [
+          [`Event Name:`, ev.title],
+          [`Date:`, dateStr],
+          [`Organizer Name:`, organizerName, `Organizer Email:`, organizerMail],
+          [],
+          [`S NO`, `Student Name`, `Email`, `Dept`, `College`, `Paid Status`, `Attendance`]
+        ];
+        const notAttendedMapped = notAttendedRows.map((row, idx) => {
+          const r = [...row];
+          r[0] = idx + 1;
+          return r;
+        });
+        const wsNotAttended = XLSX.utils.aoa_to_sheet([...notAttendedHeaderInfo, ...notAttendedMapped]);
+
+        // Extend cell column widths
+        const colWidths = [
+          { wch: 8 },   // S NO
+          { wch: 25 },  // Student Name
+          { wch: 32 },  // Email
+          { wch: 15 },  // Dept
+          { wch: 35 },  // College
+          { wch: 15 },  // Paid Status
+          { wch: 12 }   // Attendance
+        ];
+        wsAll['!cols'] = colWidths;
+        wsNotAttended['!cols'] = colWidths;
+
+        // Sheet titles (Max 31 chars)
+        const cleanTitle = ev.title.replace(/[\[\]\*\?\/\\:]/g, '').substring(0, 20);
+        XLSX.utils.book_append_sheet(wb, wsAll, `${cleanTitle}_Attendees`);
+        XLSX.utils.book_append_sheet(wb, wsNotAttended, `${cleanTitle}_Absentees`);
+      });
+
+      // Write workbook file
+      let filename = 'Event_Registrations_Report.xlsx';
+      if (eventsToExport.length === 1) {
+        const ev = eventsToExport[0];
+        const rawDate = ev.date || ev.dateTime;
+        const formattedDateStr = rawDate ? new Date(rawDate).toLocaleDateString().replace(/\//g, '-') : 'Date_N_A';
+        filename = `${ev.title.replace(/[^a-z0-9]/gi, '_')}_${formattedDateStr}.xlsx`;
+      }
+
+      XLSX.writeFile(wb, filename);
+      setActionSuccess(`Excel file "${filename}" generated and downloaded successfully.`);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to generate Excel sheet report: ' + err.message);
+    }
   };
 
   // Helper date text formatter
@@ -796,6 +1585,23 @@ export default function Dashboard() {
     if (!isoString) return '';
     const date = new Date(isoString);
     return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatEventDateRange = (evt) => {
+    if (!evt) return '';
+    const start = evt.fromDate || evt.dateTime || evt.date;
+    const end = evt.toDate;
+    if (!start) return '';
+    
+    const dStart = new Date(start);
+    const startStr = isNaN(dStart.getTime()) ? '' : dStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + dStart.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    if (!end) return startStr;
+    
+    const dEnd = new Date(end);
+    const endStr = isNaN(dEnd.getTime()) ? '' : dEnd.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + dEnd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    
+    if (startStr === endStr) return startStr;
+    return `${startStr} - ${endStr}`;
   };
 
   // Menu lists based on user role
@@ -808,7 +1614,6 @@ export default function Dashboard() {
     { id: 'registrations', label: 'My Registrations', icon: '📝' },
     { id: 'attendance', label: 'My Attendance', icon: '📱' },
     { id: 'certificates', label: 'My Certificates', icon: '🏆' },
-    { id: 'announcements', label: 'Announcements', icon: '📢' },
     { id: 'profile', label: 'My Profile', icon: '👤' }
   ];
 
@@ -816,12 +1621,6 @@ export default function Dashboard() {
     { id: 'home', label: 'Home', icon: '🏠' },
     { id: 'event-plan', label: 'Event Plan', icon: '📅' },
     { id: 'registrations', label: 'Registrations', icon: '📝' },
-    { id: 'approve-events', label: 'Approve Events', icon: '✅' },
-    { id: 'announcements', label: 'Announcements', icon: '📢' },
-    { id: 'staff', label: 'Staff Management', icon: '👥' },
-    { id: 'clubs', label: 'Clubs Management', icon: '🏢' },
-    { id: 'qr-attendance', label: 'QR Attendance', icon: '📱' },
-    { id: 'attendance-list', label: 'Attendance List', icon: '📋' },
     { id: 'result-entry', label: 'Result Entry', icon: '🥇' },
     { id: 'report-menu', label: 'Report Menu', icon: '📊' },
     { id: 'profile', label: 'My Profile', icon: '👤' }
@@ -832,8 +1631,8 @@ export default function Dashboard() {
     { id: 'faculty-events', label: 'Event Page', icon: '📅' },
     { id: 'faculty-registrations', label: 'Student Registrations', icon: '👨‍🎓' },
     { id: 'faculty-approve', label: 'Approve Events', icon: '✅' },
-    { id: 'faculty-announcements', label: 'Announcements', icon: '📢' },
-    { id: 'faculty-attendance', label: 'Attendance', icon: '📋' },
+    { id: 'faculty-approve-organizer', label: 'Approve Organizers', icon: '🔑' },
+    { id: 'clubs', label: 'Clubs Directory', icon: '🏢' },
     { id: 'faculty-reports', label: 'Reports', icon: '📊' },
     { id: 'profile', label: 'My Profile', icon: '👤' }
   ];
@@ -848,32 +1647,66 @@ export default function Dashboard() {
 
       {/* Sidebar Navigation */}
       <aside className={`dashboard-sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="user-avatar" style={{ borderRadius: '10px' }}>🏫</div>
+        <div 
+          className="sidebar-header" 
+          onClick={() => navigate('/')}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '16px', cursor: 'pointer' }}
+          title="Go to Homepage"
+        >
+          <img src={logoImg} alt="KSR Logo" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', border: '1.5px solid var(--dash-border)' }} />
           <div className="sidebar-title-container">
-            <span className="sidebar-title">CAMPUS EVENTS</span>
-            <span className="sidebar-subtitle">{isStudent ? 'Student Portal' : 'Organizer Portal'}</span>
+            <span className="sidebar-title" style={{ fontSize: '15px', fontWeight: '800', letterSpacing: '0.3px', color: 'var(--dash-text)' }}>CAMPUS EVENTS</span>
+            <span className="sidebar-subtitle" style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}>{isStudent ? 'Student Portal' : isFaculty ? 'Faculty Portal' : user.role === 'admin' ? 'Admin Portal' : 'Organizer Portal'}</span>
           </div>
         </div>
 
         <nav className="sidebar-menu">
-          {tabsToRender.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                if (tab.id === 'profile') {
-                  navigate('/profile');
-                } else {
-                  setCurrentTab(tab.id);
-                }
-                setIsSidebarOpen(false);
-              }}
-              className={`nav-item ${currentTab === tab.id ? 'active' : ''}`}
-            >
-              <span style={{ fontSize: '18px' }}>{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
+          {tabsToRender.map((tab) => {
+            const props = { width: '18', height: '18', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2.5', strokeLinecap: 'round', strokeLinejoin: 'round', style: { marginRight: '10px', verticalAlign: 'middle' } };
+            let iconSvg = null;
+            if (tab.id === 'home') {
+              iconSvg = <svg {...props}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>;
+            } else if (tab.id === 'browse-events' || tab.id === 'faculty-events' || tab.id === 'event-plan') {
+              iconSvg = <svg {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
+            } else if (tab.id === 'registrations' || tab.id === 'faculty-registrations') {
+              iconSvg = <svg {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"></path></svg>;
+            } else if (tab.id === 'attendance') {
+              iconSvg = <svg {...props}><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>;
+            } else if (tab.id === 'certificates') {
+              iconSvg = <svg {...props}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>;
+            } else if (tab.id === 'faculty-approve' || tab.id === 'approve-events') {
+              iconSvg = <svg {...props}><polyline points="20 6 9 17 4 12"></polyline></svg>;
+            } else if (tab.id === 'faculty-approve-organizer') {
+              iconSvg = <svg {...props}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>;
+            } else if (tab.id === 'staff' || tab.id === 'clubs') {
+              iconSvg = <svg {...props}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
+            } else if (tab.id === 'result-entry') {
+              iconSvg = <svg {...props}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>;
+            } else if (tab.id === 'report-menu' || tab.id === 'faculty-reports') {
+              iconSvg = <svg {...props}><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>;
+            } else if (tab.id === 'profile') {
+              iconSvg = <svg {...props}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+            }
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  if (tab.id === 'profile') {
+                    navigate('/profile');
+                  } else {
+                    setCurrentTab(tab.id);
+                  }
+                  setIsSidebarOpen(false);
+                }}
+                className={`nav-item ${currentTab === tab.id ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center' }}
+              >
+                {iconSvg}
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">
@@ -902,6 +1735,16 @@ export default function Dashboard() {
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
               aria-expanded={isSidebarOpen}
+              style={isSidebarOpen ? {
+                position: 'fixed',
+                left: '210px',
+                top: '16px',
+                zIndex: 1000,
+                background: 'var(--brand-green-light)',
+                border: 'none',
+                color: 'var(--brand-text-green)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              } : {}}
             >
               {isSidebarOpen ? '✕' : '☰'}
             </button>
@@ -929,7 +1772,10 @@ export default function Dashboard() {
 
         {/* Render Tab Contents */}
         {loading ? (
-          <div className="spinner">Loading campus network...</div>
+          <div className="loading-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', width: '100%' }}>
+            <span className="spinner"></span>
+            <p style={{ marginTop: '12px', fontSize: '14px', fontWeight: '500', color: 'var(--dash-text-muted)' }}>Loading campus network...</p>
+          </div>
         ) : (
           <>
             {/* -------------------- STUDENT DASHBOARD FLOWS -------------------- */}
@@ -946,34 +1792,100 @@ export default function Dashboard() {
                       </div>
                     </div>
 
+                    {registrations.some(r => r.status === 'Pending') && (
+                      <div className="alert-banner warning" style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fffbeb', border: '1.5px solid #fef3c7', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', color: '#b45309', fontSize: '14px', fontWeight: '500' }}>
+                        <span>⚠️</span>
+                        <span>You have <strong>{registrations.filter(r => r.status === 'Pending').length}</strong> registrations pending organizer confirmation. Please check the registrations tab for details.</span>
+                      </div>
+                    )}
+
                     {/* 2. Overview (stats-grid) made a little bigger using stat-card-lg */}
                     <div className="stats-grid" style={{ marginBottom: '32px' }}>
-                      <div className="stat-card stat-card-lg">
+                      <div className="stat-card stat-card-lg" onClick={() => setCurrentTab('registrations')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">📝</div>
                         <div className="stat-info">
-                          <span className="stat-value">{registeredEventIds.length}</span>
+                          <span className="stat-value">{registrations.filter(r => r.status === 'Registered' || r.status === 'Checked-in').length}</span>
                           <span className="stat-label">Registered Events</span>
                         </div>
                       </div>
-                      <div className="stat-card stat-card-lg">
+                      <div className="stat-card stat-card-lg" onClick={() => setCurrentTab('attendance')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">✅</div>
                         <div className="stat-info">
                           <span className="stat-value">
-                            {attendedRegistrations.length}
+                            {registrations.filter(r => r.status === 'Checked-in').length}
                           </span>
                           <span className="stat-label">Attended Events</span>
                         </div>
                       </div>
-                      <div className="stat-card stat-card-lg">
+                      <div className="stat-card stat-card-lg" onClick={() => setCurrentTab('certificates')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">🏆</div>
                         <div className="stat-info">
                           <span className="stat-value">
-                            {attendedRegistrations.length}
+                            {registrations.filter(r => r.status === 'Checked-in').length}
                           </span>
                           <span className="stat-label">Certificates Earned</span>
                         </div>
                       </div>
                     </div>
+
+                    {/* Pending Registration Cards */}
+                    {registrations.filter(r => r.status === 'Pending').length > 0 && (
+                      <div style={{ marginBottom: '32px' }}>
+                        <div className="section-header" style={{ marginBottom: '16px' }}>
+                          <h3 style={{ margin: 0, color: '#b45309' }}>⏳ Pending Registration Approvals</h3>
+                        </div>
+                        <div className="event-grid">
+                          {registrations.filter(r => r.status === 'Pending').map((reg) => {
+                            const matchingEvent = events.find(e => e._id === reg.eventId || e.title === reg.eventTitle);
+                            const eventImg = matchingEvent ? getEventImage(matchingEvent) : reactWorkshopImg;
+                            const dateVal = matchingEvent ? formatEventDateRange(matchingEvent) : new Date(reg.date).toLocaleDateString();
+                            const venueVal = matchingEvent ? (matchingEvent.venue || matchingEvent.location) : 'Campus Venue';
+                            return (
+                              <div key={reg.id} className="dash-event-card" style={{ borderLeft: '4px solid #f59e0b' }}>
+                                <div 
+                                  className="event-card-header"
+                                  style={{
+                                    backgroundImage: `url("${eventImg}")`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center'
+                                  }}
+                                >
+                                  <span className="event-card-club" style={{ background: '#b45309', color: '#fff' }}>⏳ Pending Approval</span>
+                                </div>
+                                <div className="event-card-content">
+                                  <h4 className="event-card-title">{reg.eventTitle}</h4>
+                                  <p className="event-card-desc" style={{ color: '#b45309', fontWeight: '500', fontSize: '12px', background: '#fffbeb', padding: '6px 10px', borderRadius: '6px', border: '1px solid #fde68a', margin: '8px 0' }}>
+                                    Your receipt is currently awaiting organizer verification.
+                                  </p>
+                                  <div className="event-card-info-row">
+                                    <div className="event-card-info-item">
+                                      <span>📅</span> {dateVal}
+                                    </div>
+                                    <div className="event-card-info-item">
+                                      <span>📍</span> {venueVal}
+                                    </div>
+                                  </div>
+                                  <div className="event-card-action-row">
+                                    <button
+                                      onClick={() => {
+                                        if (matchingEvent) {
+                                          setSelectedEvent(matchingEvent);
+                                          setIsEventDetailModalOpen(true);
+                                        }
+                                      }}
+                                      className="dash-btn dash-btn-secondary"
+                                      style={{ flex: 1 }}
+                                    >
+                                      View Event Details
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* 3. Upcoming Recommended Events below overview */}
                     <div className="section-header" style={{ marginBottom: '16px' }}>
@@ -1001,10 +1913,10 @@ export default function Dashboard() {
                               <p className="event-card-desc">{event.description}</p>
                               <div className="event-card-info-row">
                                 <div className="event-card-info-item">
-                                  <span>📅</span> {formatDate(event.date)}
+                                  <span>📅</span> {formatEventDateRange(event)}
                                 </div>
                                 <div className="event-card-info-item">
-                                  <span>📍</span> {event.location}
+                                  <span>📍</span> {event.venue || event.location || 'Main Campus'}
                                 </div>
                               </div>
                               <div className="event-card-action-row">
@@ -1018,12 +1930,13 @@ export default function Dashboard() {
                                   Details
                                 </button>
                                 <button
-                                  disabled={isRegistered}
-                                  onClick={() => isRegistered ? null : navigate(`/register?eventId=${event._id}`)}
-                                  className="dash-btn dash-btn-primary"
-                                >
-                                  {isRegistered ? 'Registered' : 'Register Now'}
-                                </button>
+                                   disabled={isRegistered || (event.registrationsCount >= event.maxParticipants)}
+                                   onClick={() => (isRegistered || (event.registrationsCount >= event.maxParticipants)) ? null : navigate(`/register?eventId=${event._id}`)}
+                                   className="dash-btn dash-btn-primary"
+                                   style={(event.registrationsCount >= event.maxParticipants && !isRegistered) ? { background: '#ef4444', borderColor: '#ef4444' } : {}}
+                                 >
+                                   {isRegistered ? 'Registered' : (event.registrationsCount >= event.maxParticipants) ? 'Event Full' : 'Register Now'}
+                                 </button>
                               </div>
                             </div>
                           </div>
@@ -1043,95 +1956,55 @@ export default function Dashboard() {
                     </div>
 
                     {/* Separately: My Registrations and Announcements down the overview */}
-                    <div className="home-split-grid">
-                      {/* Left: My Registrations */}
-                      <div className="home-column-section" style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                        <div>
-                          <div className="section-header" style={{ marginBottom: '16px' }}>
-                            <h3 style={{ margin: 0 }}>My Registrations</h3>
-                          </div>
-                          <div className="dash-table-container">
-                            <table className="dash-table">
-                              <thead>
-                                <tr>
-                                  <th>Event</th>
-                                  <th>Date</th>
-                                  <th>Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {studentRegistrations.slice().reverse().slice(0, 3).map((reg) => (
-                                  <tr key={reg.id}>
-                                    <td style={{ fontWeight: 'bold' }}>{reg.eventTitle}</td>
-                                    <td>
-                                      {formatDate(eventsMap.get(reg.eventId)?.date)}
-                                    </td>
-                                    <td>
-                                      <span className={`badge ${reg.status === 'Approved' ? 'badge-success' :
-                                          reg.status === 'Rejected' ? 'badge-danger' : 'badge-warning'
-                                        }`}>
-                                        {reg.status}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                                {studentRegistrations.length === 0 && (
-                                  <tr>
-                                    <td colSpan="3" style={{ textAlign: 'center', padding: '20px', color: 'var(--dash-text-muted)' }}>
-                                      No registered events yet.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
+                    <div className="home-column-section" style={{ display: 'flex', flexDirection: 'column', marginTop: '24px', marginBottom: '32px' }}>
+                      <div>
+                        <div className="section-header" style={{ marginBottom: '16px' }}>
+                          <h3 style={{ margin: 0 }}>My Registrations</h3>
                         </div>
-                        {/* Button for Registrations at the bottom-right of this section */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                          <button
-                            onClick={() => setCurrentTab('registrations')}
-                            className="dash-btn dash-btn-outline"
-                            style={{ width: '80px', padding: '4px 10px', fontSize: '11px' }}
-                          >
-                            View All
-                          </button>
+                        <div className="dash-table-container">
+                          <table className="dash-table">
+                            <thead>
+                              <tr>
+                                <th>Event</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {studentRegistrations.slice().reverse().slice(0, 3).map((reg) => (
+                                <tr key={reg.id}>
+                                  <td style={{ fontWeight: 'bold' }}>{reg.eventTitle}</td>
+                                  <td>
+                                    {formatEventDateRange(eventsMap.get(reg.eventId))}
+                                  </td>
+                                  <td>
+                                    <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
+                                        reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
+                                      }`}>
+                                      {reg.status === 'Approved' || reg.status === 'Registered' ? 'Registration Completed' : reg.status}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                              {studentRegistrations.length === 0 && (
+                                <tr>
+                                  <td colSpan="3" style={{ textAlign: 'center', padding: '20px', color: 'var(--dash-text-muted)' }}>
+                                    No registered events yet.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-
-                      {/* Right: Latest Announcements */}
-                      <div className="home-column-section" style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
-                        <div>
-                          <div className="section-header" style={{ marginBottom: '16px' }}>
-                            <h3 style={{ margin: 0 }}>Latest Announcements</h3>
-                          </div>
-                          <div className="home-announcements-list">
-                            {announcements.slice().reverse().slice(0, 3).map((ann) => (
-                              <div key={ann.id} className="announcement-card" style={{ marginBottom: '12px', padding: '16px' }}>
-                                <div className="announcement-header">
-                                  <span className="announcement-title" style={{ fontSize: '14px' }}>{ann.title}</span>
-                                  <span className="announcement-date">{formatDate(ann.date)}</span>
-                                </div>
-                                <p className="announcement-body" style={{ fontSize: '12.5px', margin: '6px 0 0 0' }}>{ann.body}</p>
-                                <div className="announcement-author" style={{ fontSize: '10px', marginTop: '6px' }}>By: {ann.author}</div>
-                              </div>
-                            ))}
-                            {announcements.length === 0 && (
-                              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)', background: 'var(--dash-card-bg)', border: '1px dashed var(--dash-border)', borderRadius: '12px' }}>
-                                No announcements yet.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {/* Button for Announcements at the bottom-right of this section */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                          <button
-                            onClick={() => setCurrentTab('announcements')}
-                            className="dash-btn dash-btn-outline"
-                            style={{ width: '80px', padding: '4px 10px', fontSize: '11px' }}
-                          >
-                            View All
-                          </button>
-                        </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                        <button
+                          onClick={() => setCurrentTab('registrations')}
+                          className="dash-btn dash-btn-outline"
+                          style={{ width: '80px', padding: '4px 10px', fontSize: '11px' }}
+                        >
+                          View All
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1214,8 +2087,8 @@ export default function Dashboard() {
                                   <h4 className="event-card-title">{event.title}</h4>
                                   <p className="event-card-desc">{event.description}</p>
                                   <div className="event-card-info-row">
-                                    <div className="event-card-info-item"><span>📅</span> {formatDate(event.date)}</div>
-                                    <div className="event-card-info-item"><span>📍</span> {event.location}</div>
+                                    <div className="event-card-info-item"><span>📅</span> {formatEventDateRange(event)}</div>
+                                    <div className="event-card-info-item"><span>📍</span> {event.venue || event.location || 'Main Campus'}</div>
                                     <div className="event-card-info-item"><span>👥</span> Capacity: {event.capacity} seats</div>
                                   </div>
                                   {/* Interactive Action Strip */}
@@ -1254,11 +2127,12 @@ export default function Dashboard() {
                                       Details
                                     </button>
                                     <button
-                                      disabled={isRegistered || isPast}
-                                      onClick={() => (isRegistered || isPast) ? null : navigate(`/register?eventId=${event._id}`)}
+                                      disabled={isRegistered || isPast || (event.registrationsCount >= event.maxParticipants)}
+                                      onClick={() => (isRegistered || isPast || (event.registrationsCount >= event.maxParticipants)) ? null : navigate(`/register?eventId=${event._id}`)}
                                       className="dash-btn dash-btn-primary"
+                                      style={(event.registrationsCount >= event.maxParticipants && !isRegistered && !isPast) ? { background: '#ef4444', borderColor: '#ef4444' } : {}}
                                     >
-                                      {isPast ? 'Closed' : isRegistered ? '✓ Registered' : 'Register Now'}
+                                      {isPast ? 'Closed' : isRegistered ? '✓ Registered' : (event.registrationsCount >= event.maxParticipants) ? 'Event Full' : 'Register Now'}
                                     </button>
                                   </div>
                                 </div>
@@ -1291,16 +2165,37 @@ export default function Dashboard() {
                         <tbody>
                           {studentRegistrations.map((reg) => (
                             <tr key={reg.id}>
-                              <td style={{ fontWeight: 'bold' }}>{reg.eventTitle}</td>
+                              <td
+                                style={{ fontWeight: 'bold', color: 'var(--ace-primary, #10b981)', cursor: 'pointer' }}
+                                onClick={() => {
+                                  const matchingEvent = events.find(e => e._id === reg.eventId || e.title === reg.eventTitle);
+                                  if (matchingEvent) {
+                                    setSelectedEvent(matchingEvent);
+                                    setIsEventDetailModalOpen(true);
+                                  } else {
+                                    setSelectedEvent({
+                                      title: reg.eventTitle,
+                                      description: "Detailed description is synced in the system database.",
+                                      clubName: "Registered Campus Club",
+                                      date: eventsMap.get(reg.eventId)?.date || reg.date,
+                                      location: "Campus Venue",
+                                      capacity: "N/A"
+                                    });
+                                    setIsEventDetailModalOpen(true);
+                                  }
+                                }}
+                              >
+                                {reg.eventTitle}
+                              </td>
                               <td>
                                 {formatDate(eventsMap.get(reg.eventId)?.date)}
                               </td>
                               <td>{new Date(reg.date).toLocaleDateString()}</td>
                               <td>
-                                <span className={`badge ${reg.status === 'Approved' ? 'badge-success' :
-                                    reg.status === 'Rejected' ? 'badge-danger' : 'badge-warning'
+                                <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
+                                    reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
                                   }`}>
-                                  {reg.status}
+                                  {reg.status === 'Approved' || reg.status === 'Registered' ? 'Registration Completed' : reg.status === 'Pending' ? 'Pending Registration Confirmation' : reg.status}
                                 </span>
                               </td>
                             </tr>
@@ -1326,26 +2221,59 @@ export default function Dashboard() {
                     </div>
 
                     <div className="profile-layout">
-                      <div className="profile-card">
-                        <div className="qr-placeholder-svg" style={{ margin: '0 auto 20px auto' }}>
-                          {/* Visual representation of a digital QR ticket */}
-                          <div style={{ padding: '8px', border: '1px solid #ddd', background: '#fff' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 15px)', gridTemplateRows: 'repeat(10, 15px)', gap: '2px' }}>
-                              {Array.from({ length: 100 }).map((_, i) => (
-                                <div key={i} style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  backgroundColor: (i % 3 === 0 || i % 7 === 0 || (i > 10 && i < 20) || (i > 80 && i < 90)) ? '#000' : '#fff'
-                                }}></div>
-                              ))}
-                            </div>
-                          </div>
+                      <div className="profile-card" style={{ padding: '24px', textAlign: 'center' }}>
+                        <h3>📷 Scan Event QR Code</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--dash-text-muted)', marginBottom: '16px' }}>
+                          Use your device camera to scan the organizer's event QR code and log your attendance.
+                        </p>
+
+                        <div className="dash-form-group" style={{ textAlign: 'left', marginBottom: '20px' }}>
+                          <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Select Event to Scan</label>
+                          <select
+                            value={qrScanEventId}
+                            onChange={(e) => setQrScanEventId(e.target.value)}
+                            className="dash-select"
+                            disabled={isScanning}
+                          >
+                            <option value="">-- Choose Registered Event --</option>
+                            {approvedRegistrations.map(reg => (
+                              <option key={reg.eventId} value={reg.eventId}>{reg.eventTitle}</option>
+                            ))}
+                          </select>
                         </div>
-                        <h3>Digital Check-In QR</h3>
-                        <p style={{ fontSize: '12px' }}>Present this QR code at the event check-in counter to log attendance.</p>
-                        <span className="profile-role-badge" style={{ backgroundColor: 'var(--brand-green-light)', color: '#3a7a10' }}>
-                          ID: {user.regNo || user._id.slice(-6)}
-                        </span>
+
+                        {isScanning ? (
+                          <div style={{ position: 'relative', width: '100%', maxWidth: '320px', margin: '0 auto', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--brand-green-light)' }}>
+                            <video 
+                              ref={videoRef} 
+                              style={{ width: '100%', display: 'block', background: '#000' }} 
+                              playsInline 
+                            />
+                            <button 
+                              type="button" 
+                              onClick={stopScanning} 
+                              className="dash-btn"
+                              style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', background: '#dc2626', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}
+                            >
+                              Stop Scanner
+                            </button>
+                          </div>
+                        ) : (
+                          <button 
+                            type="button" 
+                            onClick={startScanning} 
+                            className="dash-btn dash-btn-primary"
+                            style={{ margin: '10px 0' }}
+                          >
+                            📷 Start Camera Scanner
+                          </button>
+                        )}
+
+                        {scanStatus && (
+                          <div style={{ marginTop: '16px', fontSize: '14px', fontWeight: '500', color: 'var(--brand-green-light)' }}>
+                            {scanStatus}
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -1470,125 +2398,213 @@ export default function Dashboard() {
             {isOrganizer && (
               <>
                 {/* 1. Organizer Home Tab */}
-                {currentTab === 'home' && (
-                  <div>
-                    <div className="dashboard-summary-banner">
-                      <div className="banner-text">
-                        <h2>Manage Events & Staff Accounts</h2>
-                        <p>Draft technical specifications, authorize volunteer lists, post announcements, run QR attendance trackers, and export comprehensive spreadsheets.</p>
-                      </div>
-                    </div>
+                {currentTab === 'home' && (() => {
+                  const myCreatedEvents = events.filter(e => String(e.createdBy?._id || e.createdBy) === String(user._id));
+                  const myEventRegistrations = registrations.filter(r => myCreatedEvents.some(e => String(e._id) === String(r.eventId)));
+                  const myPendingStudentRegistrations = myEventRegistrations.filter(r => r.status === 'Pending');
+                  const campusUpcomingEvents = events.filter(e => new Date(e.date || e.dateTime) >= new Date() && e.status === 'Approved');
 
-                    <div className="stats-grid">
-                      <div className="stat-card">
-                        <div className="stat-icon">📅</div>
-                        <div className="stat-info">
-                          <span className="stat-value">{events.length}</span>
-                          <span className="stat-label">Events Managed</span>
+                  return (
+                    <div>
+                      <div className="dashboard-summary-banner">
+                        <div className="banner-text">
+                          <h2>Manage Events & Club Registrations</h2>
+                          <p>Organize club events, check student payment screenshots, review registrations, publish results, and track attendee check-ins.</p>
                         </div>
                       </div>
-                      <div className="stat-card">
-                        <div className="stat-icon">👥</div>
-                        <div className="stat-info">
-                          <span className="stat-value">{registrations.length}</span>
-                          <span className="stat-label">Registrations Logged</span>
-                        </div>
-                      </div>
-                      <div className="stat-card">
-                        <div className="stat-icon">⏳</div>
-                        <div className="stat-info">
-                          <span className="stat-value">
-                            {registrations.filter(r => r.status === 'Pending').length}
-                          </span>
-                          <span className="stat-label">Pending Approvals</span>
-                        </div>
-                      </div>
-                      <div className="stat-card">
-                        <div className="stat-icon">🏢</div>
-                        <div className="stat-info">
-                          <span className="stat-value">{clubs.length}</span>
-                          <span className="stat-label">Active Clubs</span>
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="section-header">
-                      <h3>Active Events Registry</h3>
-                    </div>
+                      <div className="stats-grid">
+                        <div className="stat-card">
+                          <div className="stat-icon">📅</div>
+                          <div className="stat-info">
+                            <span className="stat-value">{myCreatedEvents.length}</span>
+                            <span className="stat-label">My Events Proposed</span>
+                          </div>
+                        </div>
+                        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setCurrentTab('registrations')}>
+                          <div className="stat-icon">👥</div>
+                          <div className="stat-info">
+                            <span className="stat-value">{myEventRegistrations.length}</span>
+                            <span className="stat-label">Event Registrations</span>
+                          </div>
+                        </div>
+                        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setCurrentTab('registrations')}>
+                          <div className="stat-icon">⏳</div>
+                          <div className="stat-info">
+                            <span className="stat-value">{myPendingStudentRegistrations.length}</span>
+                            <span className="stat-label">Pending Reviews</span>
+                          </div>
+                        </div>
+                        <div className="stat-card">
+                          <div className="stat-icon">🏢</div>
+                          <div className="stat-info">
+                            <span className="stat-value" style={{ fontSize: '15px', wordBreak: 'break-all' }}>{user.clubName || 'General Club'}</span>
+                            <span className="stat-label">My Organized Club</span>
+                          </div>
+                        </div>
+                      </div>
 
-                    <div style={{ marginTop: '20px', marginBottom: '20px' }}>
-                      <div className="event-grid">
-                        {events.map((event) => {
-                          const isPast = new Date(event.date) < new Date();
-                          const eventImg = getEventImage(event);
-                          return (
-                            <div key={event._id} className="dash-event-card">
-                              <div 
-                                className="event-card-header"
-                                style={{
-                                  backgroundImage: `url(${eventImg})`,
-                                  backgroundSize: 'cover',
-                                  backgroundPosition: 'center',
-                                  filter: isPast ? 'grayscale(80%)' : 'none'
-                                }}
-                              >
-                                <span className="event-card-club">{event.clubName || 'College Club'}</span>
-                                <span
-                                  className="event-card-tag"
-                                  style={isPast
-                                    ? { background: '#444', color: '#aaa', position: 'absolute', bottom: '12px', left: '12px' }
-                                    : { background: 'var(--brand-green-light)', color: 'var(--brand-text-green)', position: 'absolute', bottom: '12px', left: '12px' }
-                                  }
-                                >
-                                  {isPast ? '🔴 Closed' : '🟢 Active'}
-                                </span>
-                              </div>
-                              <div className="event-card-content">
-                                <h4 className="event-card-title">{event.title}</h4>
-                                <p className="event-card-desc">{event.description}</p>
-                                <div className="event-card-info-row">
-                                  <div className="event-card-info-item">
-                                    <span>📅</span> {formatDate(event.date)}
-                                  </div>
-                                  <div className="event-card-info-item">
-                                    <span>📍</span> {event.location}
-                                  </div>
-                                  <div className="event-card-info-item">
-                                    <span>👥</span> Capacity: {event.capacity} seats
-                                  </div>
-                                </div>
-                                <div className="event-card-action-row">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedEvent(event);
-                                      setIsEventDetailModalOpen(true);
+                      {/* Section 1: My Proposed Events */}
+                      <div className="section-header" style={{ marginTop: '30px' }}>
+                        <h3>My Event Proposals</h3>
+                      </div>
+                      <div style={{ marginTop: '16px', marginBottom: '24px' }}>
+                        {myCreatedEvents.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '30px', background: 'var(--dash-card-bg)', borderRadius: '10px', color: 'var(--dash-text-muted)', border: '1px dashed var(--dash-border)' }}>
+                            No events proposed by you yet. Click "Plan New Event" to begin.
+                          </div>
+                        ) : (
+                          <div className="event-grid">
+                            {myCreatedEvents.map((event) => {
+                              const isPast = new Date(event.date) < new Date();
+                              const eventImg = getEventImage(event);
+                              return (
+                                <div key={event._id} className="dash-event-card">
+                                  <div 
+                                    className="event-card-header"
+                                    style={{
+                                      backgroundImage: `url(${eventImg})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center',
+                                      filter: isPast ? 'grayscale(80%)' : 'none'
                                     }}
-                                    className="dash-btn dash-btn-secondary"
-                                    style={{ flex: 1 }}
                                   >
-                                    Details
-                                  </button>
-                                  <button
-                                    onClick={() => setCurrentTab('registrations')}
-                                    className="dash-btn dash-btn-primary"
-                                    style={{ flex: 1 }}
-                                  >
-                                    Registrations
-                                  </button>
+                                    <span className="event-card-club">{event.clubName || 'College Club'}</span>
+                                    <span
+                                      className="event-card-tag"
+                                      style={
+                                        event.status === 'Approved'
+                                          ? { background: 'var(--brand-green-light)', color: 'var(--brand-text-green)', position: 'absolute', bottom: '12px', left: '12px' }
+                                          : event.status === 'Denied' || event.status === 'Rejected'
+                                          ? { background: '#ef4444', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
+                                          : event.status === 'Deleted'
+                                          ? { background: '#7f1d1d', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
+                                          : { background: '#f59e0b', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
+                                      }
+                                    >
+                                      {event.status || 'Pending Review'}
+                                    </span>
+                                  </div>
+                                  <div className="event-card-content">
+                                    <h4 className="event-card-title">{event.title}</h4>
+                                    <p className="event-card-desc">{event.description}</p>
+                                    <div className="event-card-info-row">
+                                      <div className="event-card-info-item">
+                                        <span>📅</span> {formatEventDateRange(event)}
+                                      </div>
+                                      <div className="event-card-info-item">
+                                        <span>📍</span> {event.venue || event.location || 'Main Campus'}
+                                      </div>
+                                      <div className="event-card-info-item">
+                                        <span>👥</span> Capacity: {event.capacity} seats
+                                      </div>
+                                    </div>
+                                    {(event.status === 'Rejected' || event.coordinationStatus === 'Denied') && event.rejectedBy && (
+                                      <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '10px', fontWeight: 'bold', background: 'rgba(239, 68, 68, 0.1)', padding: '6px 10px', borderRadius: '6px' }}>
+                                        ⚠️ Rejected by: {event.rejectedBy.name ? `${event.rejectedBy.name} (${event.rejectedBy.email || 'N/A'})` : 'Faculty'}
+                                      </div>
+                                    )}
+                                    {event.status === 'Deleted' && event.deletedBy && (
+                                      <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '10px', fontWeight: 'bold', background: 'rgba(239, 68, 68, 0.1)', padding: '6px 10px', borderRadius: '6px' }}>
+                                        🗑️ Deleted by: {event.deletedBy.name ? `${event.deletedBy.name} (${event.deletedBy.email || 'N/A'})` : 'Faculty'}
+                                      </div>
+                                    )}
+                                    <div className="event-card-action-row">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedEvent(event);
+                                          setIsEventDetailModalOpen(true);
+                                        }}
+                                        className="dash-btn dash-btn-secondary"
+                                        style={{ flex: 1 }}
+                                      >
+                                        Details
+                                      </button>
+                                      <button
+                                        onClick={() => setCurrentTab('registrations')}
+                                        className="dash-btn dash-btn-primary"
+                                        style={{ flex: 1 }}
+                                      >
+                                        Registrations
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Section 2: Active / Upcoming Campus Events */}
+                      <div className="section-header" style={{ marginTop: '30px' }}>
+                        <h3>Upcoming Campus Events</h3>
+                      </div>
+                      <div style={{ marginTop: '16px', marginBottom: '20px' }}>
+                        {campusUpcomingEvents.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '30px', background: 'var(--dash-card-bg)', borderRadius: '10px', color: 'var(--dash-text-muted)', border: '1px dashed var(--dash-border)' }}>
+                            No upcoming approved campus events at the moment.
+                          </div>
+                        ) : (
+                          <div className="event-grid">
+                            {campusUpcomingEvents.map((event) => {
+                              const eventImg = getEventImage(event);
+                              return (
+                                <div key={event._id} className="dash-event-card">
+                                  <div 
+                                    className="event-card-header"
+                                    style={{
+                                      backgroundImage: `url(${eventImg})`,
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center'
+                                    }}
+                                  >
+                                    <span className="event-card-club">{event.clubName || 'College Club'}</span>
+                                    <span
+                                      className="event-card-tag"
+                                      style={{ background: 'var(--brand-green-light)', color: 'var(--brand-text-green)', position: 'absolute', bottom: '12px', left: '12px' }}
+                                    >
+                                      🟢 Active
+                                    </span>
+                                  </div>
+                                  <div className="event-card-content">
+                                    <h4 className="event-card-title">{event.title}</h4>
+                                    <p className="event-card-desc">{event.description}</p>
+                                    <div className="event-card-info-row">
+                                      <div className="event-card-info-item">
+                                        <span>📅</span> {formatEventDateRange(event)}
+                                      </div>
+                                      <div className="event-card-info-item">
+                                        <span>📍</span> {event.venue || event.location || 'Main Campus'}
+                                      </div>
+                                    </div>
+                                    <div className="event-card-action-row">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedEvent(event);
+                                          setIsEventDetailModalOpen(true);
+                                        }}
+                                        className="dash-btn dash-btn-secondary"
+                                        style={{ flex: 1 }}
+                                      >
+                                        Details
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                        <button onClick={() => setCurrentTab('event-plan')} className="dash-btn dash-btn-primary">
+                          + Plan New Event
+                        </button>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                      <button onClick={() => setCurrentTab('event-plan')} className="dash-btn dash-btn-primary">
-                        + Plan New Event
-                      </button>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 2. Organizer Event Plan Form Tab */}
                 {currentTab === 'event-plan' && (
@@ -1600,51 +2616,279 @@ export default function Dashboard() {
                     <div className="dash-table-container" style={{ padding: '30px' }}>
                       <form onSubmit={handleCreateEvent} className="dash-form">
                         <div className="dash-form-group">
-                          <label>Event Title</label>
+                          <label>Event Title *</label>
                           <input
                             type="text"
                             value={eventForm.title}
                             onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                            onBlur={(e) => {
+                              const val = e.target.value;
+                              if (!val.trim()) {
+                                e.target.setCustomValidity("Event title is required");
+                              } else if (val.length >= 50) {
+                                e.target.setCustomValidity("Event title must be less than 50 characters.");
+                              } else if (/^\d+$/.test(val)) {
+                                e.target.setCustomValidity("Event title cannot contain only numbers.");
+                              } else {
+                                e.target.setCustomValidity("");
+                              }
+                              e.target.reportValidity();
+                            }}
                             className="dash-input"
                             placeholder="Enter event name (e.g. Codeathon 2026)"
                             required
                           />
                         </div>
                         <div className="dash-form-group">
-                          <label>Organizing Club</label>
+                          <label>Organizing Club *</label>
                           <input
                             type="text"
                             value={eventForm.clubName}
-                            onChange={(e) => setEventForm({ ...eventForm, clubName: e.target.value })}
+                            onChange={(e) => setEventForm({ ...eventForm, clubName: e.target.value.replace(/[^a-zA-Z\s]/g, '') })}
+                            onBlur={(e) => {
+                              const val = e.target.value;
+                              if (!val.trim()) {
+                                e.target.setCustomValidity("Organizing Club is required");
+                              } else if (/\d/.test(val)) {
+                                e.target.setCustomValidity("Club name cannot contain numbers.");
+                              } else {
+                                e.target.setCustomValidity("");
+                              }
+                              e.target.reportValidity();
+                            }}
                             className="dash-input"
                             placeholder="e.g. Coding Club"
+                            pattern="^[a-zA-Z\s]+$"
+                            title="Club name must contain only alphabets and spaces."
                             required
                           />
                         </div>
 
                         <div className="dash-form-group">
-                          <label>Event Description</label>
+                          <label>Event Description *</label>
                           <textarea
                             value={eventForm.description}
                             onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                            onBlur={(e) => {
+                              if (!e.target.value.trim()) {
+                                e.target.setCustomValidity("Event description is required");
+                              } else {
+                                e.target.setCustomValidity("");
+                              }
+                              e.target.reportValidity();
+                            }}
                             className="dash-textarea"
                             placeholder="Detail event schedule, constraints, criteria, and prize pools..."
                             required
                           ></textarea>
                         </div>
 
-                        <div className="dash-form-group">
-                          <label>Scheduled Date & Time</label>
-                          <input
-                            type="datetime-local"
-                            value={eventForm.date}
-                            onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-                            className="dash-input"
-                            required
-                          />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                          <div className="dash-form-group" style={{ position: 'relative' }}>
+                            <label>From Date & Time *</label>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                type="button"
+                                className="dash-btn dash-btn-outline"
+                                onClick={() => {
+                                  setIsFromDatePickerOpen(!isFromDatePickerOpen);
+                                  setIsToDatePickerOpen(false);
+                                }}
+                                style={{ flex: 1, textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '42px', padding: '0 12px', border: '1px solid var(--dash-border)', borderRadius: '8px', background: 'transparent', color: 'var(--dash-text)' }}
+                              >
+                                <span>{eventForm.fromDate ? new Date(eventForm.fromDate).toLocaleDateString() : 'Select Date 📅'}</span>
+                              </button>
+                              <input
+                                type="time"
+                                value={eventForm.fromTime || ''}
+                                onChange={(e) => {
+                                  const timeVal = e.target.value;
+                                  const dateObj = eventForm.fromDate ? new Date(eventForm.fromDate) : new Date();
+                                  if (timeVal) {
+                                    const [h, m] = timeVal.split(':');
+                                    dateObj.setHours(parseInt(h), parseInt(m), 0, 0);
+                                  }
+                                  setEventForm({ ...eventForm, fromDate: dateObj.toISOString(), fromTime: timeVal });
+                                }}
+                                className="dash-input"
+                                style={{ width: '120px', height: '42px' }}
+                                required
+                              />
+                            </div>
+                            {isFromDatePickerOpen && (
+                              <div style={{ position: 'absolute', top: '70px', left: 0, zIndex: 1000, background: '#fff', border: '1.5px solid var(--brand-green-light)', borderRadius: '8px', padding: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', color: '#000' }}>
+                                <DayPicker
+                                  mode="single"
+                                  selected={eventForm.fromDate ? new Date(eventForm.fromDate) : undefined}
+                                  onSelect={(day) => {
+                                    if (day) {
+                                      const dateObj = new Date(day);
+                                      if (eventForm.fromTime) {
+                                        const [h, m] = eventForm.fromTime.split(':');
+                                        dateObj.setHours(parseInt(h), parseInt(m), 0, 0);
+                                      } else {
+                                        dateObj.setHours(9, 0, 0, 0);
+                                      }
+                                      setEventForm({ ...eventForm, fromDate: dateObj.toISOString() });
+                                    }
+                                    setIsFromDatePickerOpen(false);
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="dash-form-group" style={{ position: 'relative' }}>
+                            <label>To Date & Time *</label>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                type="button"
+                                className="dash-btn dash-btn-outline"
+                                onClick={() => {
+                                  setIsToDatePickerOpen(!isToDatePickerOpen);
+                                  setIsFromDatePickerOpen(false);
+                                }}
+                                style={{ flex: 1, textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '42px', padding: '0 12px', border: '1px solid var(--dash-border)', borderRadius: '8px', background: 'transparent', color: 'var(--dash-text)' }}
+                              >
+                                <span>{eventForm.toDate ? new Date(eventForm.toDate).toLocaleDateString() : 'Select Date 📅'}</span>
+                              </button>
+                              <input
+                                type="time"
+                                value={eventForm.toTime || ''}
+                                onChange={(e) => {
+                                  const timeVal = e.target.value;
+                                  const dateObj = eventForm.toDate ? new Date(eventForm.toDate) : new Date();
+                                  if (timeVal) {
+                                    const [h, m] = timeVal.split(':');
+                                    dateObj.setHours(parseInt(h), parseInt(m), 0, 0);
+                                  }
+                                  setEventForm({ ...eventForm, toDate: dateObj.toISOString(), toTime: timeVal });
+                                }}
+                                className="dash-input"
+                                style={{ width: '120px', height: '42px' }}
+                                required
+                              />
+                            </div>
+                            {isToDatePickerOpen && (
+                              <div style={{ position: 'absolute', top: '70px', left: 0, zIndex: 1000, background: '#fff', border: '1.5px solid var(--brand-green-light)', borderRadius: '8px', padding: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', color: '#000' }}>
+                                <DayPicker
+                                  mode="single"
+                                  selected={eventForm.toDate ? new Date(eventForm.toDate) : undefined}
+                                  onSelect={(day) => {
+                                    if (day) {
+                                      const dateObj = new Date(day);
+                                      if (eventForm.toTime) {
+                                        const [h, m] = eventForm.toTime.split(':');
+                                        dateObj.setHours(parseInt(h), parseInt(m), 0, 0);
+                                      } else {
+                                        dateObj.setHours(17, 0, 0, 0);
+                                      }
+                                      setEventForm({ ...eventForm, toDate: dateObj.toISOString() });
+                                    }
+                                    setIsToDatePickerOpen(false);
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                          <div className="dash-form-group">
+                            <label>Event Mode *</label>
+                            <select
+                              value={eventForm.mode}
+                              onChange={(e) => setEventForm({ ...eventForm, mode: e.target.value })}
+                              className="dash-select"
+                              required
+                            >
+                              <option value="offline">Offline / In-Person</option>
+                              <option value="online">Online / Virtual</option>
+                            </select>
+                          </div>
+                          <div className="dash-form-group">
+                            <label>Registration Type *</label>
+                            <select
+                              value={eventForm.registrationType}
+                              onChange={(e) => setEventForm({ ...eventForm, registrationType: e.target.value })}
+                              className="dash-select"
+                              required
+                            >
+                              <option value="solo">Solo Participant</option>
+                              <option value="team">Team Registration</option>
+                            </select>
+                          </div>
+                          <div className="dash-form-group">
+                            <label>Pricing Type *</label>
+                            <select
+                              value={eventForm.priceType}
+                              onChange={(e) => setEventForm({ ...eventForm, priceType: e.target.value })}
+                              className="dash-select"
+                              required
+                            >
+                              <option value="free">Free Entry</option>
+                              <option value="paid">Paid Entry</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {eventForm.priceType === 'paid' && (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <div className="dash-form-group">
+                              <label>UPI ID/Number for Payment *</label>
+                              <input
+                                type="text"
+                                value={eventForm.upiNumber}
+                                onChange={(e) => setEventForm({ ...eventForm, upiNumber: e.target.value })}
+                                onBlur={(e) => {
+                                  const val = e.target.value;
+                                  const isUpiIdValid = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(val);
+                                  const isUpiPhoneValid = /^\d{10}$/.test(val);
+                                  if (!val) {
+                                    e.target.setCustomValidity("UPI ID or Number is required");
+                                  } else if (!isUpiIdValid && !isUpiPhoneValid) {
+                                    e.target.setCustomValidity("Please provide a valid UPI ID (e.g., username@bank) or a 10-digit phone number.");
+                                  } else {
+                                    e.target.setCustomValidity("");
+                                  }
+                                  e.target.reportValidity();
+                                }}
+                                className="dash-input"
+                                placeholder="UPI ID or 10-digit number"
+                                required
+                              />
+                            </div>
+                            <div className="dash-form-group">
+                              <label>Entry Fee (Amount per person) *</label>
+                              <input
+                                type="text"
+                                pattern="\d*"
+                                value={eventForm.entryFee === 0 ? '' : eventForm.entryFee}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === '' || /^\d+$/.test(val)) {
+                                    setEventForm({ ...eventForm, entryFee: val === '' ? 0 : parseInt(val, 10) });
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  if (isNaN(val) || val <= 0) {
+                                    e.target.setCustomValidity("Entry fee must be greater than zero for paid events.");
+                                  } else {
+                                    e.target.setCustomValidity("");
+                                  }
+                                  e.target.reportValidity();
+                                }}
+                                className="dash-input"
+                                placeholder="Amount in ₹"
+                                required
+                              />
+                            </div>
+                          </div>
+                        )}
+
                         <div className="dash-form-group">
-                          <label>Venue Location</label>
+                          <label>Venue Location *</label>
                           <input
                             type="text"
                             value={eventForm.location}
@@ -1655,17 +2899,153 @@ export default function Dashboard() {
                           />
                         </div>
                         <div className="dash-form-group">
-                          <label>Capacity Limit (Attendees)</label>
+                          <label>Capacity Limit (Attendees) *</label>
                           <input
                             type="number"
                             value={eventForm.capacity}
                             onChange={(e) => setEventForm({ ...eventForm, capacity: e.target.value })}
+                            onBlur={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (isNaN(val) || val < 1 || val > 1000) {
+                                e.target.setCustomValidity("Capacity Limit must be between 1 and 1000 seats.");
+                              } else {
+                                e.target.setCustomValidity("");
+                              }
+                              e.target.reportValidity();
+                            }}
                             className="dash-input"
-                            min="10"
+                            min="1"
+                            max="1000"
                             required
                           />
                         </div>
+                        <div className="dash-form-group">
+                          <label>Requested Faculty Coordinator (Optional)</label>
+                          <select
+                            value={eventForm.requestedFaculty}
+                            onChange={(e) => setEventForm({ ...eventForm, requestedFaculty: e.target.value })}
+                            className="dash-select"
+                          >
+                            <option value="">-- No Coordinator Request --</option>
+                            {facultyList.map((fac) => (
+                              <option key={fac._id} value={fac._id}>
+                                {fac.name} ({fac.email})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="dash-form-group">
+                          <label>Event Poster Image (Upload or Select Preset Theme)</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setEventForm(prev => ({ ...prev, posterUrl: reader.result }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="dash-input"
+                            style={{ padding: '8px' }}
+                          />
+                          <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--dash-text-muted)' }}>
+                            Or choose a default design preset design below:
+                          </div>
+                          <select
+                            value={eventForm.imageTheme}
+                            onChange={(e) => setEventForm({ ...eventForm, imageTheme: e.target.value, posterUrl: '' })}
+                            className="dash-select"
+                            style={{ marginTop: '6px' }}
+                          >
+                            <option value="default">General / Default Poster</option>
+                            <option value="hackathon">Coding / Hackathon Theme</option>
+                            <option value="robotics">Robotics / Tech Theme</option>
+                            <option value="cultural">Cultural / Arts Theme</option>
+                            <option value="workshop">Workshop / Seminar Theme</option>
+                          </select>
+                          {eventForm.posterUrl && (
+                            <div style={{ marginTop: '12px' }}>
+                              <img 
+                                src={eventForm.posterUrl} 
+                                alt="Poster Preview" 
+                                style={{ maxWidth: '100%', maxHeight: '180px', borderRadius: '6px', border: '1px solid var(--dash-border)' }} 
+                              />
+                            </div>
+                          )}
+                        </div>
 
+                        {/* Dynamic Student Coordinators sub-form */}
+                        <div style={{ marginTop: '24px', borderTop: '1px solid var(--dash-border)', paddingTop: '20px', marginBottom: '20px' }}>
+                          <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', color: 'var(--dash-text)' }}>Student Coordinators (Optional)</h4>
+                          {studentCoordinators.map((coordinator, idx) => (
+                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+                              <input
+                                type="text"
+                                value={coordinator.name}
+                                onChange={(e) => handleCoordinatorChange(idx, 'name', e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
+                                placeholder="Student Name"
+                                className="dash-input"
+                                style={{ padding: '8px 12px' }}
+                                pattern="^[a-zA-Z\s]+$"
+                                title="Name must contain only letters and spaces"
+                              />
+                              <input
+                                type="text"
+                                value={coordinator.regNo}
+                                onChange={(e) => handleCoordinatorChange(idx, 'regNo', e.target.value.replace(/\D/g, ''))}
+                                placeholder="Registration No"
+                                className="dash-input"
+                                style={{ padding: '8px 12px' }}
+                                pattern="^\d+$"
+                                title="Registration number must contain only numbers"
+                              />
+                              <select
+                                value={coordinator.dept}
+                                onChange={(e) => handleCoordinatorChange(idx, 'dept', e.target.value)}
+                                className="dash-select"
+                                style={{ padding: '8px 12px', fontSize: '13px', background: 'var(--dash-input-bg)', border: '1px solid var(--dash-border)', borderRadius: '8px', width: '100%' }}
+                              >
+                                <option value="">-- Dept --</option>
+                                {DEPARTMENTS.map((dept) => (
+                                  <option key={dept} value={dept}>{dept}</option>
+                                ))}
+                              </select>
+                              <input
+                                type="text"
+                                value={coordinator.phone}
+                                onChange={(e) => handleCoordinatorChange(idx, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                placeholder="Phone Number"
+                                className="dash-input"
+                                style={{ padding: '8px 12px' }}
+                                pattern="^\d{10}$"
+                                maxLength="10"
+                                title="Phone number must be exactly 10 digits"
+                              />
+                              {studentCoordinators.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCoordinator(idx)}
+                                  className="dash-btn"
+                                  style={{ padding: '8px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={handleAddCoordinator}
+                            className="dash-btn"
+                            style={{ padding: '8px 14px', background: 'var(--brand-green-light)', color: 'var(--brand-text-green)', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+                          >
+                            + Add Coordinator
+                          </button>
+                        </div>
 
                         <div style={{ display: 'flex', gap: '16px', marginTop: '10px' }}>
                           <button type="submit" className="dash-btn dash-btn-primary">
@@ -1681,80 +3061,126 @@ export default function Dashboard() {
                 )}
 
                 {/* 3. Organizer Registrations Approval Tab */}
-                {currentTab === 'registrations' && (
-                  <div>
-                    <div className="section-header">
-                      <h3>Review Student Registrations</h3>
-                    </div>
+                {currentTab === 'registrations' && (() => {
+                  const myCreatedEvents = events.filter(e => String(e.createdBy?._id || e.createdBy) === String(user._id));
+                  const myEventRegs = registrations.filter(r => myCreatedEvents.length === 0 || myCreatedEvents.some(e => String(e._id) === String(getRegEventId(r))));
 
-                    <div className="dash-table-container">
-                      <table className="dash-table">
-                        <thead>
-                          <tr>
-                            <th>Student Name</th>
-                            <th>Reg Number</th>
-                            <th>Event Applied</th>
-                            <th>Date Applied</th>
-                            <th>Current Status</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {registrations.map((reg) => (
-                            <tr key={reg.id}>
-                              <td style={{ fontWeight: 'bold' }}>{reg.studentName}</td>
-                              <td>{reg.studentReg}</td>
-                              <td>{reg.eventTitle}</td>
-                              <td>{new Date(reg.date).toLocaleDateString()}</td>
-                              <td>
-                                <span className={`badge ${reg.status === 'Approved' ? 'badge-success' :
-                                    reg.status === 'Rejected' ? 'badge-danger' : 'badge-warning'
-                                  }`}>
-                                  {reg.status}
-                                </span>
-                              </td>
-                              <td style={{ display: 'flex', gap: '6px' }}>
-                                {reg.status === 'Pending' ? (
-                                  <>
-                                    <button
-                                      onClick={() => handleUpdateRegistrationStatus(reg.id, 'Approved')}
-                                      className="dash-btn dash-btn-primary"
-                                      style={{ padding: '4px 8px', fontSize: '11px', flex: 'none' }}
-                                    >
-                                      Approve
-                                    </button>
-                                    <button
-                                      onClick={() => handleUpdateRegistrationStatus(reg.id, 'Rejected')}
-                                      className="dash-btn dash-btn-secondary"
-                                      style={{ padding: '4px 8px', fontSize: '11px', flex: 'none', color: '#ff6b6b' }}
-                                    >
-                                      Reject
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button
-                                    onClick={() => handleUpdateRegistrationStatus(reg.id, 'Pending')}
-                                    className="dash-btn dash-btn-outline"
-                                    style={{ padding: '4px 8px', fontSize: '11px', flex: 'none' }}
-                                  >
-                                    Reset to Pending
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                          {registrations.length === 0 && (
+                  return (
+                    <div>
+                      <div className="section-header">
+                        <h3>Review Student Registrations</h3>
+                      </div>
+
+                      <div className="dash-table-container">
+                        <table className="dash-table">
+                          <thead>
                             <tr>
-                              <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)' }}>
-                                No registrations logged on the server.
-                              </td>
+                              <th>Student Name</th>
+                              <th>Reg Number</th>
+                              <th>Event Applied</th>
+                              <th>Date Applied</th>
+                              <th>Payment Status</th>
+                              <th>Current Status</th>
+                              <th>Attendance</th>
+                              <th>Actions</th>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {myEventRegs.map((reg) => {
+                              const ev = events.find(e => e._id === reg.eventId);
+                              const priceType = ev ? ev.priceType : 'free';
+                              const isPaid = priceType === 'paid';
+                              const isVerified = reg.status === 'Registered' || reg.status === 'Checked-in' || reg.paymentVerified;
+
+                              return (
+                                <tr key={reg.id}>
+                                  <td style={{ fontWeight: 'bold' }}>{reg.studentName}</td>
+                                  <td>{reg.studentReg}</td>
+                                  <td>{reg.eventTitle}</td>
+                                  <td>{new Date(reg.date).toLocaleDateString()}</td>
+                                  <td>
+                                    {isPaid ? (
+                                      <span className={`badge ${isVerified ? 'badge-success' : 'badge-danger'}`}>
+                                        {isVerified ? '💰 Paid' : '❌ Not Paid'}
+                                      </span>
+                                    ) : (
+                                      <span className="badge badge-secondary">🆓 Free</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
+                                        reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
+                                      }`}>
+                                      {reg.status}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    {reg.status === 'Checked-in' ? (
+                                      <span className="badge badge-success" style={{ fontWeight: 'bold' }}>
+                                        ✅ Attended {reg.checkInTime ? `at ${new Date(reg.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                                      </span>
+                                    ) : (
+                                      <span className="badge badge-secondary" style={{ opacity: 0.7 }}>
+                                        ❌ Absent
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                      {reg.paymentScreenshot && (
+                                        <button
+                                          onClick={() => setSelectedScreenshotReg(reg)}
+                                          className="dash-btn dash-btn-outline"
+                                          style={{ padding: '4px 8px', fontSize: '11px', flex: 'none' }}
+                                          title="View payment transaction slip"
+                                        >
+                                          🔍 View Slip
+                                        </button>
+                                      )}
+                                      {reg.status === 'Pending' ? (
+                                        <>
+                                          <button
+                                            onClick={() => handleUpdateRegistrationStatus(reg.id, 'Registered')}
+                                            className="dash-btn dash-btn-primary"
+                                            style={{ padding: '4px 8px', fontSize: '11px', flex: 'none' }}
+                                          >
+                                            Approve
+                                          </button>
+                                          <button
+                                            onClick={() => handleUpdateRegistrationStatus(reg.id, 'Rejected')}
+                                            className="dash-btn dash-btn-secondary"
+                                            style={{ padding: '4px 8px', fontSize: '11px', flex: 'none', color: '#ff6b6b' }}
+                                          >
+                                            Reject
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleUpdateRegistrationStatus(reg.id, 'Pending')}
+                                          className="dash-btn dash-btn-outline"
+                                          style={{ padding: '4px 8px', fontSize: '11px', flex: 'none' }}
+                                        >
+                                          Reset
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {myEventRegs.length === 0 && (
+                              <tr>
+                                <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)' }}>
+                                  No student registrations found for your events.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 4. Organizer Approve Events Panel */}
                 {currentTab === 'approve-events' && (
@@ -1875,45 +3301,10 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* 7. Organizer Clubs Tab */}
-                {currentTab === 'clubs' && (
-                  <div>
-                    <div className="section-header">
-                      <h3>Affiliated Clubs Directory</h3>
-                    </div>
 
-                    <div className="dash-table-container" style={{ marginTop: '20px' }}>
-                      <table className="dash-table">
-                        <thead>
-                          <tr>
-                            <th>Club Name</th>
-                            <th>Department Scope</th>
-                            <th>President Name</th>
-                            <th>Description Summary</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {clubs.map((c) => (
-                            <tr key={c.id}>
-                              <td style={{ fontWeight: 'bold' }}>{c.name}</td>
-                              <td>{c.dept}</td>
-                              <td>{c.president}</td>
-                              <td style={{ color: 'var(--dash-text-muted)' }}>{c.desc}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                      <button onClick={() => setIsAddClubModalOpen(true)} className="dash-btn dash-btn-primary">
-                        + Add New Club
-                      </button>
-                    </div>
-                  </div>
-                )}
 
                 {/* 8. Organizer QR Attendance Simulation Tab */}
-                {currentTab === 'qr-attendance' && (
+                {currentTab === 'attendance' && (
                   <div>
                     <div className="section-header">
                       <h3>QR Code Attendance Scanning</h3>
@@ -2124,61 +3515,135 @@ export default function Dashboard() {
                 )}
 
                 {/* 11. Organizer Report Menu Tab */}
-                {currentTab === 'report-menu' && (
-                  <div>
-                    <div className="section-header">
-                      <h3>Reports & Analytics Menu</h3>
-                    </div>
+                {currentTab === 'report-menu' && (() => {
+                  const myCreatedEvents = events.filter(e => String(e.createdBy?._id || e.createdBy) === String(user._id));
+                  const myEventRegs = registrations.filter(r => myCreatedEvents.some(e => String(e._id) === String(getRegEventId(r))));
+                  const selectedEventId = qrScanEventId;
+                  const currentEventRegs = selectedEventId 
+                    ? registrations.filter(r => getRegEventId(r) === selectedEventId)
+                    : myEventRegs;
+                  const attended = currentEventRegs.filter(r => r.checkedIn).length;
+                  const rate = currentEventRegs.length > 0 ? Math.round((attended / currentEventRegs.length) * 100) : 0;
+                  const pending = currentEventRegs.filter(r => r.status === 'Pending').length;
 
-                    <div className="profile-layout">
-                      <div className="profile-card">
-                        <h3>Download Formats</h3>
-                        <p>Generate analytical sheets of registration trends, attendance metrics, and winner pools.</p>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '16px' }}>
-                          <button onClick={() => handleExportReport('xlsx')} className="dash-btn dash-btn-primary">
-                            Export Excel Worksheet (.xlsx)
-                          </button>
-                          <button onClick={() => handleExportReport('pdf')} className="dash-btn dash-btn-outline">
-                            Export PDF Report (.pdf)
-                          </button>
-                          <button onClick={() => handleExportReport('csv')} className="dash-btn dash-btn-secondary">
-                            Export Raw Data (.csv)
-                          </button>
-                        </div>
+                  return (
+                    <div>
+                      <div className="section-header">
+                        <h3>Event Reports & Analytics</h3>
                       </div>
 
-                      <div className="dash-table-container" style={{ padding: '24px' }}>
-                        <h3>Report Statistics Summaries</h3>
+                      <div className="profile-layout">
+                        <div className="profile-card">
+                          <h3>Report Filters</h3>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-                          <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--dash-border)' }}>
-                            <span style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Participation Rate</span>
-                            <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0' }}>
-                              {registrations.length > 0
-                                ? Math.round((registrations.filter(r => r.checkedIn).length / registrations.length) * 100)
-                                : 0}%
-                            </h4>
+                          <div className="dash-form" style={{ marginTop: '16px' }}>
+                            <div className="dash-form-group">
+                              <label>Select Event</label>
+                              <select
+                                value={qrScanEventId}
+                                onChange={(e) => setQrScanEventId(e.target.value)}
+                                className="dash-select"
+                              >
+                                <option value="">-- All My Events --</option>
+                                {myCreatedEvents.map(ev => (
+                                  <option key={ev._id} value={ev._id}>{ev.title}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+                              <button onClick={() => handleExportReport('xlsx')} className="dash-btn dash-btn-primary">
+                                📊 Export Excel
+                              </button>
+                            </div>
                           </div>
-                          <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--dash-border)' }}>
-                            <span style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Total Accounts Registered</span>
-                            <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0' }}>
-                              {new Set(registrations.map(r => r.studentId)).size} Students
-                            </h4>
+                        </div>
+
+                        <div className="dash-table-container" style={{ padding: '24px', flexGrow: 1 }}>
+                          <h3>Report Metrics</h3>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+                            <div 
+                              onClick={() => setCurrentTab('registrations')}
+                              style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', textTransform: 'uppercase', fontWeight: '500' }}>Total Registrations</span>
+                              <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0', fontWeight: '700' }}>
+                                {currentEventRegs.filter(r => r.status !== 'Pending' && r.status !== 'Cancelled' && r.status !== 'Rejected').length}
+                              </h4>
+                            </div>
+                            <div 
+                              onClick={() => setCurrentTab('registrations')}
+                              style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', textTransform: 'uppercase', fontWeight: '500' }}>Attendance Count</span>
+                              <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0', fontWeight: '700' }}>
+                                {attended}
+                              </h4>
+                            </div>
+                            <div 
+                              onClick={() => setCurrentTab('registrations')}
+                              style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', textTransform: 'uppercase', fontWeight: '500' }}>Attendance Rate</span>
+                              <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0', fontWeight: '700' }}>
+                                {rate}%
+                              </h4>
+                            </div>
+                            <div 
+                              onClick={() => setCurrentTab('registrations')}
+                              style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', textTransform: 'uppercase', fontWeight: '500' }}>Pending Approvals</span>
+                              <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0', fontWeight: '700' }}>
+                                {pending}
+                              </h4>
+                            </div>
                           </div>
-                          <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--dash-border)' }}>
-                            <span style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Clubs represented</span>
-                            <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0' }}>{clubs.length}</h4>
-                          </div>
-                          <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '10px', border: '1px solid var(--dash-border)' }}>
-                            <span style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Seeded Staff Coordinators</span>
-                            <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0' }}>{staff.length}</h4>
+
+                          <div className="dash-table-container" style={{ marginTop: '24px', padding: '16px' }}>
+                            <h4 style={{ margin: '0 0 12px 0' }}>Event Details</h4>
+                            <table className="dash-table">
+                              <thead>
+                                <tr>
+                                  <th>Event Name</th>
+                                  <th>Date</th>
+                                  <th>Total Regs</th>
+                                  <th>Attended</th>
+                                  <th>Attend %</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(selectedEventId ? myCreatedEvents.filter(e => e._id === selectedEventId) : myCreatedEvents).map((event) => {
+                                  const evRegs = registrations.filter(r => r.eventId === event._id);
+                                  const att = evRegs.filter(r => r.checkedIn).length;
+                                  const pct = evRegs.length > 0 ? Math.round((att / evRegs.length) * 100) : 0;
+                                  return (
+                                    <tr key={event._id}>
+                                      <td style={{ fontWeight: 'bold' }}>{event.title}</td>
+                                      <td>{formatDate(event.date).split(' at')[0]}</td>
+                                      <td>{evRegs.length}</td>
+                                      <td>{att}</td>
+                                      <td>{pct}%</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </>
             )}
 
@@ -2197,30 +3662,30 @@ export default function Dashboard() {
 
                     {/* Quick Stats */}
                     <div className="stats-grid">
-                      <div className="stat-card faculty-stat-card">
+                      <div className="stat-card faculty-stat-card" onClick={() => setCurrentTab('faculty-events')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">📅</div>
                         <div className="stat-info">
                           <span className="stat-value">{events.length}</span>
                           <span className="stat-label">Active Events</span>
                         </div>
                       </div>
-                      <div className="stat-card faculty-stat-card">
+                      <div className="stat-card faculty-stat-card" onClick={() => setCurrentTab('faculty-registrations')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">👥</div>
                         <div className="stat-info">
                           <span className="stat-value">{registrations.length}</span>
                           <span className="stat-label">Total Registrations</span>
                         </div>
                       </div>
-                      <div className="stat-card faculty-stat-card">
+                      <div className="stat-card faculty-stat-card" onClick={() => setCurrentTab('faculty-approve')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">⏳</div>
                         <div className="stat-info">
                           <span className="stat-value">
-                            {registrations.filter(r => r.status === 'Pending').length}
+                            {events.filter(e => e.status === 'Pending Review' || e.status === 'Pending').length}
                           </span>
                           <span className="stat-label">Pending Approvals</span>
                         </div>
                       </div>
-                      <div className="stat-card faculty-stat-card">
+                      <div className="stat-card faculty-stat-card" onClick={() => setCurrentTab('faculty-registrations')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">✅</div>
                         <div className="stat-info">
                           <span className="stat-value">
@@ -2248,7 +3713,7 @@ export default function Dashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {events.slice(0, 3).map((event) => (
+                          {events.filter(e => e.status === 'Pending Review' || e.status === 'Pending').slice(0, 3).map((event) => (
                             <tr key={event._id}>
                               <td style={{ fontWeight: 'bold' }}>{event.title}</td>
                               <td>{event.clubName}</td>
@@ -2267,7 +3732,7 @@ export default function Dashboard() {
                               </td>
                             </tr>
                           ))}
-                          {events.length === 0 && (
+                          {events.filter(e => e.status === 'Pending Review' || e.status === 'Pending').length === 0 && (
                             <tr>
                               <td colSpan="5" style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)' }}>
                                 No pending approvals.
@@ -2276,23 +3741,6 @@ export default function Dashboard() {
                           )}
                         </tbody>
                       </table>
-                    </div>
-
-                    {/* Recent Activity */}
-                    <div className="section-header" style={{ marginTop: '32px', marginBottom: '20px' }}>
-                      <h3>Recent Activity</h3>
-                    </div>
-
-                    <div className="home-announcements-list">
-                      {announcements.slice().reverse().slice(0, 4).map((ann) => (
-                        <div key={ann.id} className="announcement-card" style={{ marginBottom: '12px' }}>
-                          <div className="announcement-header">
-                            <span className="announcement-title" style={{ fontSize: '14px' }}>{ann.title}</span>
-                            <span className="announcement-date">{formatDate(ann.date)}</span>
-                          </div>
-                          <p className="announcement-body" style={{ fontSize: '12.5px', margin: '6px 0 0 0' }}>{ann.body}</p>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 )}
@@ -2335,33 +3783,55 @@ export default function Dashboard() {
                         {filteredEvents.map((event) => {
                           const isPast = new Date(event.date) < new Date();
                           const eventRegs = registrations.filter(r => r.eventId === event._id);
+                          const eventImg = getEventImage(event);
                           return (
-                            <div key={event._id} className="dash-event-card">
+                            <div key={event._id} className="dash-event-card faculty-event-card">
                               <div
                                 className="event-card-header"
                                 style={{
-                                  background: isPast
-                                    ? 'linear-gradient(135deg, rgba(80,80,80,0.4) 0%, rgba(20,20,20,0.9) 100%)'
-                                    : 'linear-gradient(135deg, rgba(96,150,186,0.3) 0%, rgba(20,29,34,0.9) 100%)'
+                                  backgroundImage: `url("${eventImg}")`,
+                                  backgroundSize: 'cover',
+                                  backgroundPosition: 'center',
+                                  filter: isPast ? 'grayscale(80%)' : 'none'
                                 }}
                               >
                                 <span className="event-card-club">{event.clubName}</span>
+                                <span
+                                  className="event-card-tag"
+                                  style={{
+                                    position: 'absolute',
+                                    bottom: '12px',
+                                    left: '12px',
+                                    background: event.status === 'Approved' ? 'var(--brand-green-light)' : event.status === 'Rejected' ? '#fee2e2' : '#fef3c7',
+                                    color: event.status === 'Approved' ? 'var(--brand-text-green)' : event.status === 'Rejected' ? '#ef4444' : '#b45309'
+                                  }}
+                                >
+                                  {event.status === 'Approved' ? '🟢 Approved' : event.status === 'Rejected' ? '🔴 Rejected' : '⏳ Pending'}
+                                </span>
                               </div>
 
                               <div className="event-card-content">
                                 <h4 className="event-card-title">{event.title}</h4>
                                 <p className="event-card-desc">{event.description}</p>
                                 <div className="event-card-info-row">
-                                  <div className="event-card-info-item"><span>📅</span> {formatDate(event.date)}</div>
-                                  <div className="event-card-info-item"><span>📍</span> {event.location}</div>
+                                  <div className="event-card-info-item"><span>📅</span> {formatEventDateRange(event)}</div>
+                                  <div className="event-card-info-item"><span>📍</span> {event.venue || event.location || 'Main Campus'}</div>
                                   <div className="event-card-info-item"><span>👥</span> {eventRegs.length} registered</div>
                                 </div>
-                                <div className="event-card-action-row">
+                                <div className="event-card-action-row" style={{ display: 'flex', gap: '8px' }}>
                                   <button
                                     onClick={() => { setSelectedEvent(event); setIsEventDetailModalOpen(true); }}
                                     className="dash-btn dash-btn-secondary"
+                                    style={{ flex: 1 }}
                                   >
                                     View Details
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteEvent(event._id)}
+                                    className="dash-btn dash-btn-secondary"
+                                    style={{ flex: 'none', color: '#ff6b6b', border: '1px solid #ff6b6b' }}
+                                  >
+                                    Delete
                                   </button>
                                 </div>
                               </div>
@@ -2380,9 +3850,9 @@ export default function Dashboard() {
                       <h3>Student Event Registrations</h3>
                     </div>
 
-                    <div className="dash-table-container" style={{ marginBottom: '20px', padding: '16px' }}>
-                      <div className="dash-form-group" style={{ maxWidth: '400px' }}>
-                        <label>Filter by Event</label>
+                    <div className="dash-table-container" style={{ marginBottom: '20px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
+                      <div className="dash-form-group" style={{ maxWidth: '400px', flex: 1, margin: 0 }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Filter by Event</label>
                         <select
                           value={qrScanEventId}
                           onChange={(e) => setQrScanEventId(e.target.value)}
@@ -2394,38 +3864,53 @@ export default function Dashboard() {
                           ))}
                         </select>
                       </div>
+                      <button
+                        onClick={() => {
+                          setCurrentTab('faculty-reports');
+                        }}
+                        className="dash-btn dash-btn-primary"
+                        style={{ height: '42px', padding: '0 20px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        📊 Generate Report
+                      </button>
                     </div>
 
-                    {/* Stats for selected event */}
-                    {qrScanEventId && (
-                      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-                        <div className="stat-card faculty-stat-card">
-                          <div className="stat-icon">📝</div>
-                          <div className="stat-info">
-                            <span className="stat-value">{registrations.filter(r => r.eventId === qrScanEventId).length}</span>
-                            <span className="stat-label">Total Registered</span>
-                          </div>
-                        </div>
-                        <div className="stat-card faculty-stat-card">
-                          <div className="stat-icon">✅</div>
-                          <div className="stat-info">
-                            <span className="stat-value">
-                              {registrations.filter(r => r.eventId === qrScanEventId && r.checkedIn).length}
-                            </span>
-                            <span className="stat-label">Attended</span>
-                          </div>
-                        </div>
-                        <div className="stat-card faculty-stat-card">
-                          <div className="stat-icon">⏳</div>
-                          <div className="stat-info">
-                            <span className="stat-value">
-                              {registrations.filter(r => r.eventId === qrScanEventId && r.status === 'Pending').length}
-                            </span>
-                            <span className="stat-label">Pending Approval</span>
-                          </div>
+                    {/* Stats for selected event or all events combined */}
+                    <div className="stats-grid" style={{ marginBottom: '24px' }}>
+                      <div className="stat-card faculty-stat-card">
+                        <div className="stat-icon">📝</div>
+                        <div className="stat-info">
+                          <span className="stat-value">
+                            {qrScanEventId 
+                              ? registrations.filter(r => r.eventId === qrScanEventId).length 
+                              : registrations.length}
+                          </span>
+                          <span className="stat-label">Total Registered</span>
                         </div>
                       </div>
-                    )}
+                      <div className="stat-card faculty-stat-card">
+                        <div className="stat-icon">✅</div>
+                        <div className="stat-info">
+                          <span className="stat-value">
+                            {qrScanEventId 
+                              ? registrations.filter(r => r.eventId === qrScanEventId && r.checkedIn).length 
+                              : registrations.filter(r => r.checkedIn).length}
+                          </span>
+                          <span className="stat-label">Attended</span>
+                        </div>
+                      </div>
+                      <div className="stat-card faculty-stat-card">
+                        <div className="stat-icon">⏳</div>
+                        <div className="stat-info">
+                          <span className="stat-value">
+                            {qrScanEventId 
+                              ? registrations.filter(r => r.eventId === qrScanEventId && r.status === 'Pending').length 
+                              : registrations.filter(r => r.status === 'Pending').length}
+                          </span>
+                          <span className="stat-label">Pending Approval</span>
+                        </div>
+                      </div>
+                    </div>
 
                     <div className="dash-table-container">
                       <table className="dash-table">
@@ -2435,43 +3920,94 @@ export default function Dashboard() {
                             <th>Reg. Number</th>
                             <th>Email</th>
                             <th>Event</th>
+                            <th>Payment</th>
                             <th>Status</th>
                             <th>Attended</th>
-                            <th>Action</th>
+                            <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(qrScanEventId
                             ? registrations.filter(r => r.eventId === qrScanEventId)
-                            : registrations).map((reg) => (
-                              <tr key={reg.id}>
-                                <td style={{ fontWeight: 'bold' }}>{reg.studentName}</td>
-                                <td>{reg.studentReg}</td>
-                                <td>{reg.studentEmail}</td>
-                                <td>{reg.eventTitle}</td>
-                                <td>
-                                  <span className={`badge ${reg.status === 'Approved' ? 'badge-success' :
-                                      reg.status === 'Rejected' ? 'badge-danger' : 'badge-warning'
-                                    }`}>
-                                    {reg.status}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span className={`badge ${reg.checkedIn ? 'badge-success' : 'badge-warning'}`}>
-                                    {reg.checkedIn ? 'Yes ✓' : 'No'}
-                                  </span>
-                                </td>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={reg.checkedIn}
-                                    onChange={() => handleToggleAttendanceCheck(reg.id)}
-                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                    title="Mark attendance"
-                                  />
-                                </td>
-                              </tr>
-                            ))}
+                            : registrations).map((reg) => {
+                              const ev = events.find(e => e._id === reg.eventId);
+                              const priceType = ev ? ev.priceType : 'free';
+                              const isPaid = priceType === 'paid';
+                              const isVerified = reg.status === 'Registered' || reg.status === 'Checked-in' || reg.paymentVerified;
+
+                              return (
+                                <tr key={reg.id}>
+                                  <td style={{ fontWeight: 'bold' }}>{reg.studentName}</td>
+                                  <td>{reg.studentReg}</td>
+                                  <td>{reg.studentEmail}</td>
+                                  <td 
+                                    style={{ fontWeight: 'bold', color: 'var(--ace-primary, #10b981)', cursor: 'pointer' }}
+                                    onClick={() => {
+                                      const matchingEvent = events.find(e => e._id === reg.eventId || e.title === reg.eventTitle);
+                                      if (matchingEvent) {
+                                        setSelectedEvent(matchingEvent);
+                                        setIsEventDetailModalOpen(true);
+                                      } else {
+                                        setSelectedEvent({
+                                          title: reg.eventTitle,
+                                          description: "Detailed description is synced in the database.",
+                                          clubName: "Campus Club",
+                                          date: reg.date,
+                                          location: "Campus Venue",
+                                          capacity: "N/A"
+                                        });
+                                        setIsEventDetailModalOpen(true);
+                                      }
+                                    }}
+                                  >
+                                    {reg.eventTitle}
+                                  </td>
+                                  <td>
+                                    {isPaid ? (
+                                      <span className={`badge ${isVerified ? 'badge-success' : 'badge-danger'}`}>
+                                        {isVerified ? '💰 Paid' : '❌ Not Paid'}
+                                      </span>
+                                    ) : (
+                                      <span className="badge badge-secondary">🆓 Free</span>
+                                    )}
+                                  </td>
+                                  <td>
+                                    <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
+                                        reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
+                                      }`}>
+                                      {reg.status}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={reg.checkedIn}
+                                        onChange={() => handleToggleAttendanceCheck(reg.id)}
+                                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                        title="Mark attendance"
+                                      />
+                                      <button
+                                        onClick={() => handleDeleteRegistration(reg.id)}
+                                        className="dash-btn dash-btn-secondary"
+                                        style={{ padding: '2px 6px', fontSize: '10px', color: '#ff6b6b', border: '1px solid #ff6b6b', flex: 'none' }}
+                                        title="Delete Registration"
+                                      >
+                                        Remove Reg
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteUser(reg.studentId, 'student')}
+                                        className="dash-btn dash-btn-secondary"
+                                        style={{ padding: '2px 6px', fontSize: '10px', color: '#dc2626', border: '1px solid #dc2626', flex: 'none' }}
+                                        title="Delete Student Account"
+                                      >
+                                        Revoke Access
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           {registrations.length === 0 && (
                             <tr>
                               <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)' }}>
@@ -2491,26 +4027,66 @@ export default function Dashboard() {
                     <div className="section-header">
                       <h3>Event Approval Panel</h3>
                     </div>
+                    {/* Coordination Requests Section */}
+                    {events.filter(e => String(e.requestedFaculty?._id || e.requestedFaculty) === String(user._id) && e.coordinationStatus === 'Pending').length > 0 && (
+                      <div style={{ marginBottom: '30px' }}>
+                        <div className="section-header" style={{ marginBottom: '14px' }}>
+                          <h4 style={{ color: 'var(--brand-green-light)', fontSize: '16px', fontWeight: 'bold' }}>⚡ Coordination Requests Assigned to You</h4>
+                        </div>
+                        <div className="dash-table-container" style={{ border: '1.5px solid var(--brand-green-light)' }}>
+                          <table className="dash-table">
+                            <thead>
+                              <tr>
+                                <th>Event Name</th>
+                                <th>Club/Dept</th>
+                                <th>Organizer</th>
+                                <th>Date & Time</th>
+                                <th>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {events.filter(e => String(e.requestedFaculty?._id || e.requestedFaculty) === String(user._id) && e.coordinationStatus === 'Pending').map((event) => (
+                                <tr key={event._id}>
+                                  <td 
+                                    style={{ fontWeight: 'bold', color: 'var(--brand-green-light)', cursor: 'pointer', textDecoration: 'underline' }}
+                                    onClick={() => setSelectedApprovalEvent(event)}
+                                  >
+                                    {event.title}
+                                  </td>
+                                  <td>{event.clubName || event.category}</td>
+                                  <td>
+                                    <div>{event.createdBy?.name || 'N/A'}</div>
+                                    <div style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}>{event.createdBy?.email}</div>
+                                  </td>
+                                  <td>{formatDate(event.date || event.dateTime)}</td>
+                                  <td>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                      <button 
+                                        className="dash-btn dash-btn-primary" 
+                                        onClick={() => handleUpdateCoordination(event._id, 'Accepted')}
+                                        style={{ padding: '4px 10px', fontSize: '11px' }}
+                                      >
+                                        Accept
+                                      </button>
+                                      <button 
+                                        className="dash-btn" 
+                                        onClick={() => handleUpdateCoordination(event._id, 'Denied')}
+                                        style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#ef4444', color: '#fff', border: 'none' }}
+                                      >
+                                        Deny
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
 
-                    <div className="filter-tabs" style={{ marginBottom: '20px' }}>
-                      <button
-                        className={`filter-btn ${browseFilter === 'pending' ? 'active' : ''}`}
-                        onClick={() => setBrowseFilter('pending')}
-                      >
-                        ⏳ Pending
-                      </button>
-                      <button
-                        className={`filter-btn ${browseFilter === 'approved' ? 'active' : ''}`}
-                        onClick={() => setBrowseFilter('approved')}
-                      >
-                        ✅ Approved
-                      </button>
-                      <button
-                        className={`filter-btn ${browseFilter === 'rejected' ? 'active' : ''}`}
-                        onClick={() => setBrowseFilter('rejected')}
-                      >
-                        ❌ Rejected
-                      </button>
+                    <div className="section-header" style={{ marginBottom: '14px' }}>
+                      <h3>General Event Approvals</h3>
                     </div>
 
                     <div className="dash-table-container">
@@ -2522,18 +4098,19 @@ export default function Dashboard() {
                             <th>Date</th>
                             <th>Venue</th>
                             <th>Capacity</th>
+                            <th>Coordination</th>
                             <th>Approval Status</th>
                             <th>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {events.map((event, idx) => {
-                            const statusToShow = browseFilter === 'pending' ? 'Pending Review' :
-                              browseFilter === 'approved' ? 'Approved' :
-                                browseFilter === 'rejected' ? 'Rejected' : 'Pending Review';
-                            // For demo, alternate statuses
-                            const demoStatus = idx % 3 === 0 ? 'Pending Review' : idx % 3 === 1 ? 'Approved' : 'Rejected';
-                            if (browseFilter !== 'all' && statusToShow !== demoStatus) return null;
+                          {events.map((event) => {
+                            const currentStatus = event.status || 'Pending Review';
+                            if (browseFilter !== 'all') {
+                              if (browseFilter === 'pending' && currentStatus !== 'Pending Review' && currentStatus !== 'Pending') return null;
+                              if (browseFilter === 'approved' && currentStatus !== 'Approved') return null;
+                              if (browseFilter === 'rejected' && currentStatus !== 'Rejected') return null;
+                            }
 
                             return (
                               <tr key={event._id}>
@@ -2543,24 +4120,41 @@ export default function Dashboard() {
                                 <td>{event.location}</td>
                                 <td>{event.capacity}</td>
                                 <td>
-                                  <span className={`badge ${demoStatus === 'Approved' ? 'badge-success' :
-                                      demoStatus === 'Rejected' ? 'badge-danger' : 'badge-warning'
+                                  {event.requestedFaculty ? (
+                                    <span className={`badge ${event.coordinationStatus === 'Accepted' ? 'badge-success' : event.coordinationStatus === 'Denied' ? 'badge-danger' : 'badge-warning'}`}>
+                                      {String(event.requestedFaculty?._id || event.requestedFaculty) === String(user._id) ? 'You: ' : ''}
+                                      {event.coordinationStatus || 'Pending'}
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '12px', color: 'var(--dash-text-muted)' }}>None Requested</span>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className={`badge ${currentStatus === 'Approved' ? 'badge-success' :
+                                      currentStatus === 'Rejected' ? 'badge-danger' : 'badge-warning'
                                     }`}>
-                                    {demoStatus}
+                                    {currentStatus}
                                   </span>
                                 </td>
                                 <td style={{ display: 'flex', gap: '6px' }}>
-                                  {demoStatus === 'Pending Review' && (
+                                  <button
+                                    onClick={() => setSelectedApprovalEvent(event)}
+                                    className="dash-btn dash-btn-outline"
+                                    style={{ padding: '4px 8px', fontSize: '10px', flex: 'none' }}
+                                  >
+                                    Details
+                                  </button>
+                                  {(currentStatus === 'Pending Review' || currentStatus === 'Pending') && (
                                     <>
                                       <button
-                                        onClick={() => setActionSuccess(`Approved: ${event.title}`)}
+                                        onClick={() => handleApproveRejectEvent(event._id, 'Approved')}
                                         className="dash-btn dash-btn-primary"
                                         style={{ padding: '4px 8px', fontSize: '10px', flex: 'none' }}
                                       >
                                         Approve
                                       </button>
                                       <button
-                                        onClick={() => setActionSuccess(`Rejected: ${event.title}`)}
+                                        onClick={() => handleApproveRejectEvent(event._id, 'Rejected')}
                                         className="dash-btn dash-btn-secondary"
                                         style={{ padding: '4px 8px', fontSize: '10px', flex: 'none', color: '#ff6b6b' }}
                                       >
@@ -2577,6 +4171,109 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
+
+                {/* Faculty Approve Organizers Tab */}
+                {currentTab === 'faculty-approve-organizer' && (() => {
+                  const pendingOrgs = organizers.filter(o => !o.isApproved);
+                  const activeOrgs = organizers.filter(o => o.isApproved);
+                  const filteredOrgs = browseFilter === 'pending' ? pendingOrgs : browseFilter === 'approved' ? activeOrgs : organizers;
+
+                  return (
+                    <div>
+                      <div className="section-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                        <h3>Organizer Accounts Review</h3>
+                        <div className="filter-tabs">
+                          <button
+                            className={`filter-btn ${browseFilter === 'all' ? 'active' : ''}`}
+                            onClick={() => setBrowseFilter('all')}
+                          >
+                            All ({organizers.length})
+                          </button>
+                          <button
+                            className={`filter-btn ${browseFilter === 'pending' ? 'active' : ''}`}
+                            onClick={() => setBrowseFilter('pending')}
+                          >
+                            ⏳ Pending ({pendingOrgs.length})
+                          </button>
+                          <button
+                            className={`filter-btn ${browseFilter === 'approved' ? 'active' : ''}`}
+                            onClick={() => setBrowseFilter('approved')}
+                          >
+                            ✅ Approved ({activeOrgs.length})
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="dash-table-container" style={{ marginTop: '20px' }}>
+                        <table className="dash-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Email</th>
+                              <th>Club Name</th>
+                              <th>Mobile</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredOrgs.map((org) => (
+                              <tr key={org._id}>
+                                <td>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedOrganizer(org);
+                                      setIsOrganizerModalOpen(true);
+                                    }}
+                                    className="dash-link-btn"
+                                    style={{ background: 'none', border: 'none', color: 'var(--brand-green-light)', cursor: 'pointer', padding: 0, fontWeight: 'bold', textDecoration: 'underline' }}
+                                  >
+                                    {org.name}
+                                  </button>
+                                </td>
+                                <td>{org.email}</td>
+                                <td>{org.clubName || 'N/A'}</td>
+                                <td>{org.mobileNumber || 'N/A'}</td>
+                                <td>
+                                  <span className={`badge ${org.isApproved ? 'badge-success' : 'badge-warning'}`}>
+                                    {org.isApproved ? 'Approved' : 'Pending Approval'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', gap: '8px' }}>
+                                    {!org.isApproved && (
+                                      <button
+                                        onClick={() => handleApproveOrganizer(org._id)}
+                                        className="dash-btn dash-btn-primary"
+                                        style={{ padding: '4px 8px', fontSize: '11px', width: 'auto', flex: 'none' }}
+                                      >
+                                        Approve
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeleteUser(org._id, 'organizer')}
+                                      className="dash-btn dash-btn-secondary"
+                                      style={{ padding: '4px 8px', fontSize: '11px', color: '#ff6b6b', border: '1px solid #ff6b6b', flex: 'none' }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                            {filteredOrgs.length === 0 && (
+                              <tr>
+                                <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)' }}>
+                                  No organizer accounts found matching filter.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* 5. Faculty Announcements Tab */}
                 {currentTab === 'faculty-announcements' && (
@@ -2700,9 +4397,6 @@ export default function Dashboard() {
                             <button onClick={() => handleExportReport('xlsx')} className="dash-btn dash-btn-primary">
                               📊 Export Excel
                             </button>
-                            <button onClick={() => handleExportReport('pdf')} className="dash-btn dash-btn-outline">
-                              📄 Export PDF
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -2711,7 +4405,12 @@ export default function Dashboard() {
                         <h3>Report Metrics</h3>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-                          <div style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <div 
+                            onClick={() => setCurrentTab('faculty-registrations')}
+                            style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                          >
                             <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', textTransform: 'uppercase', fontWeight: '500' }}>Total Registrations</span>
                             <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0', fontWeight: '700' }}>
                               {qrScanEventId
@@ -2720,7 +4419,12 @@ export default function Dashboard() {
                               }
                             </h4>
                           </div>
-                          <div style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <div 
+                            onClick={() => setCurrentTab('faculty-registrations')}
+                            style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                          >
                             <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', textTransform: 'uppercase', fontWeight: '500' }}>Attendance Count</span>
                             <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0', fontWeight: '700' }}>
                               {qrScanEventId
@@ -2729,7 +4433,12 @@ export default function Dashboard() {
                               }
                             </h4>
                           </div>
-                          <div style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <div 
+                            onClick={() => setCurrentTab('faculty-registrations')}
+                            style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                          >
                             <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', textTransform: 'uppercase', fontWeight: '500' }}>Attendance Rate</span>
                             <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0', fontWeight: '700' }}>
                               {qrScanEventId
@@ -2742,7 +4451,12 @@ export default function Dashboard() {
                               }%
                             </h4>
                           </div>
-                          <div style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <div 
+                            onClick={() => setCurrentTab('faculty-registrations')}
+                            style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                          >
                             <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '12px', textTransform: 'uppercase', fontWeight: '500' }}>Pending Approvals</span>
                             <h4 style={{ color: '#fff', fontSize: '20px', margin: '4px 0 0 0', fontWeight: '700' }}>
                               {registrations.filter(r => r.status === 'Pending').length}
@@ -2781,6 +4495,43 @@ export default function Dashboard() {
                           </table>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Faculty Clubs Directory Tab */}
+                {currentTab === 'clubs' && (
+                  <div>
+                    <div className="section-header">
+                      <h3>Affiliated Clubs Directory</h3>
+                    </div>
+
+                    <div className="dash-table-container" style={{ marginTop: '20px' }}>
+                      <table className="dash-table">
+                        <thead>
+                          <tr>
+                            <th>Club Name</th>
+                            <th>Department Scope</th>
+                            <th>President Name</th>
+                            <th>Description Summary</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {clubs.map((c) => (
+                            <tr key={c.id}>
+                              <td style={{ fontWeight: 'bold' }}>{c.name}</td>
+                              <td>{c.dept}</td>
+                              <td>{c.president}</td>
+                              <td style={{ color: 'var(--dash-text-muted)' }}>{c.desc}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                      <button onClick={() => setIsAddClubModalOpen(true)} className="dash-btn dash-btn-primary">
+                        + Add New Club
+                      </button>
                     </div>
                   </div>
                 )}
@@ -2856,6 +4607,104 @@ export default function Dashboard() {
 
       {/* ------------------------- DIALOG MODALS ------------------------- */}
 
+      {/* Event Approval Details & Organizer Details Modal */}
+      {selectedApprovalEvent && (() => {
+        const organizer = selectedApprovalEvent.createdBy;
+        const eventMode = (selectedApprovalEvent.mode || 'offline').toLowerCase() === 'online' ? 'Online' : 'Offline';
+        const isOnline = eventMode === 'Online';
+        return (
+          <div className="modal-overlay" onClick={() => setSelectedApprovalEvent(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>Review Event Proposal</h3>
+                <button className="modal-close-btn" onClick={() => setSelectedApprovalEvent(null)}>×</button>
+              </div>
+              <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  
+                  {/* Event Details */}
+                  <div style={{ borderBottom: '1px solid var(--dash-border)', paddingBottom: '16px' }}>
+                    <h4 style={{ color: 'var(--dash-green)', margin: '0 0 10px 0', fontSize: '15px', fontWeight: 'bold' }}>Event Details</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13.5px' }}>
+                      <div><strong>Title:</strong> {selectedApprovalEvent.title}</div>
+                      <div><strong>Description:</strong> {selectedApprovalEvent.description}</div>
+                      <div><strong>Date & Time:</strong> {formatEventDateRange(selectedApprovalEvent)}</div>
+                      <div><strong>Venue Location:</strong> {selectedApprovalEvent.location || selectedApprovalEvent.venue}</div>
+                      <div><strong>Mode:</strong> <span className={`mode-badge ${eventMode.toLowerCase()}`} style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', backgroundColor: isOnline ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: isOnline ? '#10b981' : '#ef4444', marginLeft: '6px' }}>{eventMode}</span></div>
+                      <div><strong>Capacity Limit:</strong> {selectedApprovalEvent.maxParticipants || selectedApprovalEvent.capacity || 'N/A'} seats</div>
+                    </div>
+                  </div>
+
+                  {/* Organizer Details */}
+                  <div style={{ borderBottom: '1px solid var(--dash-border)', paddingBottom: '16px' }}>
+                    <h4 style={{ color: 'var(--dash-green)', margin: '0 0 10px 0', fontSize: '15px', fontWeight: 'bold' }}>Organizer Profile</h4>
+                    {organizer ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13.5px' }}>
+                        <div><strong>Name:</strong> {organizer.name}</div>
+                        <div><strong>Email:</strong> {organizer.email}</div>
+                        <div><strong>Role:</strong> {organizer.role}</div>
+                        <div><strong>Club / Dept:</strong> {organizer.clubName || selectedApprovalEvent.clubName || 'N/A'}</div>
+                      </div>
+                    ) : (
+                      <div style={{ color: 'var(--dash-text-muted)', fontSize: '13px' }}>
+                        No coordinator profile information attached to this event record.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Event QR Code (Only if approved) */}
+                  {selectedApprovalEvent.status === 'Approved' && (
+                    <div style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                      <h4 style={{ color: 'var(--dash-green)', margin: '0 0 4px 0', fontSize: '13px', alignSelf: 'flex-start', fontWeight: 'bold' }}>Unique Event Entry QR Code</h4>
+                      <img 
+                        src={selectedApprovalEvent.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedApprovalEvent._id)}`} 
+                        alt="Event QR Code" 
+                        style={{ width: '150px', height: '150px', border: '1px solid var(--dash-border)', padding: '6px', borderRadius: '8px', backgroundColor: '#fff' }}
+                      />
+                      <button
+                        onClick={async () => {
+                          const qrUrl = selectedApprovalEvent.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(selectedApprovalEvent._id)}`;
+                          try {
+                            let blob;
+                            if (qrUrl.startsWith('data:')) {
+                              const res = await fetch(qrUrl);
+                              blob = await res.blob();
+                            } else {
+                              const response = await fetch(qrUrl);
+                              blob = await response.blob();
+                            }
+                            const url = window.URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.download = `${selectedApprovalEvent.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_qrcode.png`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            window.URL.revokeObjectURL(url);
+                          } catch (err) {
+                            console.error('Failed to download QR code', err);
+                          }
+                        }}
+                        className="dash-btn dash-btn-outline"
+                        style={{ fontSize: '12px', padding: '6px 12px' }}
+                      >
+                        ⬇ Download QR Code Image
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="dash-btn dash-btn-secondary" onClick={() => setSelectedApprovalEvent(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* A. Event Detail Modal */}
       {isEventDetailModalOpen && selectedEvent && (
         <div className="modal-overlay" onClick={() => setIsEventDetailModalOpen(false)}>
@@ -2874,9 +4723,9 @@ export default function Dashboard() {
               <p style={{ color: 'var(--dash-text-muted)', lineHeight: '1.6', margin: '0 0 20px 0' }}>{selectedEvent.description}</p>
 
               <h4 style={{ color: 'var(--brand-green-light)', margin: '0 0 8px 0' }}>Venue & Time</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: '#fff', fontSize: '14px', marginBottom: '20px' }}>
-                <div>📍 <strong>Location:</strong> {selectedEvent.location}</div>
-                <div>📅 <strong>Date:</strong> {formatDate(selectedEvent.date)}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--dash-text)', fontSize: '14px', marginBottom: '20px' }}>
+                <div>📍 <strong>Venue/Location:</strong> {selectedEvent.venue || selectedEvent.location || 'Main Campus'}</div>
+                <div>📅 <strong>Date Range:</strong> {formatEventDateRange(selectedEvent)}</div>
               </div>
 
               {selectedEvent.organizer && (
@@ -2887,20 +4736,66 @@ export default function Dashboard() {
                   </p>
                 </div>
               )}
+
+              {/* Unique Event QR Code download */}
+              {(user.role === 'organizer' || user.role === 'faculty' || user.role === 'admin') && (
+                <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: '16px', marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                  <h4 style={{ color: 'var(--brand-green-light)', margin: '0 0 4px 0', fontSize: '13px', alignSelf: 'flex-start' }}>Unique Event Entry QR Code</h4>
+                  <img 
+                    src={selectedEvent.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedEvent._id)}`} 
+                    alt="Event QR Code" 
+                    style={{ width: '150px', height: '150px', border: '1px solid var(--dash-border)', padding: '6px', borderRadius: '8px', backgroundColor: '#fff' }}
+                  />
+                  <button
+                    onClick={async () => {
+                      const qrUrl = selectedEvent.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(selectedEvent._id)}`;
+                      try {
+                        let blob;
+                        if (qrUrl.startsWith('data:')) {
+                          const res = await fetch(qrUrl);
+                          blob = await res.blob();
+                        } else {
+                          const response = await fetch(qrUrl);
+                          blob = await response.blob();
+                        }
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `${selectedEvent.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_qrcode.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                      } catch (err) {
+                        console.error('Failed to download QR code', err);
+                      }
+                    }}
+                    className="dash-btn dash-btn-outline"
+                    style={{ fontSize: '12px', padding: '6px 12px' }}
+                  >
+                    ⬇ Download QR Code Image
+                  </button>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="dash-btn dash-btn-secondary" onClick={() => setIsEventDetailModalOpen(false)}>
                 Close
               </button>
-              {isStudent && (
-                <button
-                  disabled={registeredEventIds.includes(selectedEvent._id)}
-                  onClick={() => registeredEventIds.includes(selectedEvent._id) ? null : navigate(`/register?eventId=${selectedEvent._id}`)}
-                  className="dash-btn dash-btn-primary"
-                >
-                  {registeredEventIds.includes(selectedEvent._id) ? 'Registered✓' : 'Register Now'}
-                </button>
-              )}
+              {isStudent && (() => {
+                const isReg = registeredEventIds.includes(selectedEvent._id);
+                const isFull = selectedEvent.registrationsCount >= selectedEvent.maxParticipants;
+                return (
+                  <button
+                    disabled={isReg || isFull}
+                    onClick={() => (isReg || isFull) ? null : navigate(`/register?eventId=${selectedEvent._id}`)}
+                    className="dash-btn dash-btn-primary"
+                    style={(isFull && !isReg) ? { background: '#ef4444', borderColor: '#ef4444' } : {}}
+                  >
+                    {isReg ? 'Registered✓' : isFull ? 'Event Full' : 'Register Now'}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -3130,39 +5025,76 @@ export default function Dashboard() {
                     </select>
                   </div>
 
-                  <div className="dash-form-group">
-                    <label>🥇 First Place Winner Name</label>
-                    <input
-                      type="text"
-                      value={resultForm.firstPlace}
-                      onChange={(e) => setResultForm({ ...resultForm, firstPlace: e.target.value })}
-                      className="dash-input"
-                      placeholder="Student full name"
-                      required
-                    />
-                  </div>
+                   <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                     <div>
+                       <label>🥇 First Place Winner Name *</label>
+                       <input
+                         type="text"
+                         value={resultForm.firstPlaceName}
+                         onChange={(e) => setResultForm({ ...resultForm, firstPlaceName: e.target.value })}
+                         className="dash-input"
+                         placeholder="Student full name"
+                         required
+                       />
+                     </div>
+                     <div>
+                       <label>First Place Email *</label>
+                       <input
+                         type="email"
+                         value={resultForm.firstPlaceEmail}
+                         onChange={(e) => setResultForm({ ...resultForm, firstPlaceEmail: e.target.value })}
+                         className="dash-input"
+                         placeholder="student@gmail.com"
+                         required
+                       />
+                     </div>
+                   </div>
 
-                  <div className="dash-form-group">
-                    <label>🥈 Second Place Winner Name</label>
-                    <input
-                      type="text"
-                      value={resultForm.secondPlace}
-                      onChange={(e) => setResultForm({ ...resultForm, secondPlace: e.target.value })}
-                      className="dash-input"
-                      placeholder="Student full name"
-                    />
-                  </div>
+                   <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                     <div>
+                       <label>🥈 Second Place Winner Name</label>
+                       <input
+                         type="text"
+                         value={resultForm.secondPlaceName}
+                         onChange={(e) => setResultForm({ ...resultForm, secondPlaceName: e.target.value })}
+                         className="dash-input"
+                         placeholder="Student full name"
+                       />
+                     </div>
+                     <div>
+                       <label>Second Place Email</label>
+                       <input
+                         type="email"
+                         value={resultForm.secondPlaceEmail}
+                         onChange={(e) => setResultForm({ ...resultForm, secondPlaceEmail: e.target.value })}
+                         className="dash-input"
+                         placeholder="student@gmail.com"
+                       />
+                     </div>
+                   </div>
 
-                  <div className="dash-form-group">
-                    <label>🥉 Third Place Winner Name</label>
-                    <input
-                      type="text"
-                      value={resultForm.thirdPlace}
-                      onChange={(e) => setResultForm({ ...resultForm, thirdPlace: e.target.value })}
-                      className="dash-input"
-                      placeholder="Student full name"
-                    />
-                  </div>
+                   <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                     <div>
+                       <label>🥉 Third Place Winner Name</label>
+                       <input
+                         type="text"
+                         value={resultForm.thirdPlaceName}
+                         onChange={(e) => setResultForm({ ...resultForm, thirdPlaceName: e.target.value })}
+                         className="dash-input"
+                         placeholder="Student full name"
+                       />
+                     </div>
+                     <div>
+                       <label>Third Place Email</label>
+                       <input
+                         type="email"
+                         value={resultForm.thirdPlaceEmail}
+                         onChange={(e) => setResultForm({ ...resultForm, thirdPlaceEmail: e.target.value })}
+                         className="dash-input"
+                         placeholder="student@gmail.com"
+                       />
+                     </div>
+                   </div>
                 </div>
               </div>
               <div className="modal-footer">
@@ -3174,6 +5106,51 @@ export default function Dashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Screenshot Verification Modal */}
+      {selectedScreenshotReg && (
+        <div className="modal-overlay" onClick={() => setSelectedScreenshotReg(null)}>
+          <div className="modal-content" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Verify Payment Screenshot</h3>
+              <button type="button" className="modal-close-btn" onClick={() => setSelectedScreenshotReg(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center' }}>
+              <p style={{ marginBottom: '16px', color: 'var(--dash-text-muted)', fontSize: '14px' }}>
+                Please check the UPI transaction screenshot from <strong>{selectedScreenshotReg.studentName}</strong>:
+              </p>
+              <div style={{ borderRadius: '8px', border: '1px solid var(--dash-border)', padding: '10px', background: '#000', display: 'inline-block' }}>
+                <img 
+                  src={selectedScreenshotReg.paymentScreenshot} 
+                  alt="UPI Slip Receipt" 
+                  style={{ maxWidth: '100%', maxHeight: '400px', display: 'block', borderRadius: '4px' }} 
+                />
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button 
+                type="button" 
+                className="dash-btn dash-btn-secondary" 
+                onClick={() => setSelectedScreenshotReg(null)}
+              >
+                Cancel
+              </button>
+              {selectedScreenshotReg.status === 'Pending' && (
+                <button 
+                  type="button" 
+                  className="dash-btn dash-btn-primary" 
+                  onClick={() => {
+                    handleUpdateRegistrationStatus(selectedScreenshotReg.id, 'Registered');
+                    setSelectedScreenshotReg(null);
+                  }}
+                >
+                  Verify & Approve
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -3243,6 +5220,98 @@ export default function Dashboard() {
                 className="dash-btn dash-btn-primary"
               >
                 Print Certificate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Organizer Details Modal */}
+      {isOrganizerModalOpen && selectedOrganizer && (
+        <div className="modal-overlay" onClick={() => { setIsOrganizerModalOpen(false); setSelectedOrganizer(null); }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Organizer Account Details</h3>
+              <button className="modal-close-btn" onClick={() => { setIsOrganizerModalOpen(false); setSelectedOrganizer(null); }}>×</button>
+            </div>
+            <div className="modal-body">
+              <div className="profile-layout" style={{ gridTemplateColumns: '1fr', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', color: 'var(--dash-text)' }}>
+                  <div>
+                    <strong style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Full Name</strong>
+                    <div style={{ color: 'var(--dash-text)', fontSize: '15px', marginTop: '4px', fontWeight: '600' }}>{selectedOrganizer.name}</div>
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Email Address</strong>
+                    <div style={{ color: 'var(--dash-text)', fontSize: '15px', marginTop: '4px', fontWeight: '600' }}>{selectedOrganizer.email}</div>
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Registration Number / Staff ID</strong>
+                    <div style={{ color: 'var(--dash-text)', fontSize: '15px', marginTop: '4px', fontWeight: '600' }}>{selectedOrganizer.regNo || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Club Name / Organizing Club</strong>
+                    <div style={{ color: 'var(--dash-text)', fontSize: '15px', marginTop: '4px', fontWeight: '600' }}>{selectedOrganizer.clubName || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Mobile Number</strong>
+                    <div style={{ color: 'var(--dash-text)', fontSize: '15px', marginTop: '4px', fontWeight: '600' }}>{selectedOrganizer.mobileNumber || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--dash-text-muted)', fontSize: '12px', textTransform: 'uppercase' }}>Approval Status</strong>
+                    <div style={{ marginTop: '4px' }}>
+                      <span className={`badge ${selectedOrganizer.isApproved ? 'badge-success' : 'badge-warning'}`}>
+                        {selectedOrganizer.isApproved ? 'Approved & Active' : 'Pending Review'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="dash-btn dash-btn-secondary" onClick={() => { setIsOrganizerModalOpen(false); setSelectedOrganizer(null); }}>
+                Close
+              </button>
+              {!selectedOrganizer.isApproved && (
+                <button
+                  onClick={async () => {
+                    await handleApproveOrganizer(selectedOrganizer._id);
+                  }}
+                  className="dash-btn dash-btn-primary"
+                >
+                  Approve Account
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Popup Dialog */}
+      {confirmDialog.isOpen && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal-content" style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h3>{confirmDialog.title}</h3>
+              <button className="modal-close-btn" onClick={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null })}>×</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ color: 'var(--dash-text-muted)', fontSize: '14.5px', lineHeight: '1.6', margin: 0 }}>
+                {confirmDialog.message}
+              </p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button 
+                className="dash-btn dash-btn-secondary" 
+                onClick={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null })}
+              >
+                Cancel
+              </button>
+              <button 
+                className="dash-btn" 
+                style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none' }}
+                onClick={confirmDialog.onConfirm}
+              >
+                Confirm
               </button>
             </div>
           </div>

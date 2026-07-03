@@ -34,6 +34,22 @@ const registrationSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    collegeName: {
+      type: String,
+      trim: true,
+      default: 'K.S.R. College Of Engineering',
+    },
+    teamDetails: {
+      type: String,
+      trim: true,
+    },
+    paymentScreenshot: {
+      type: String, // Stored as base64 Data URL
+    },
+    paymentVerified: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

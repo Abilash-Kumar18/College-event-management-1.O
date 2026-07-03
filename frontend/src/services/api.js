@@ -131,7 +131,10 @@ export const authService = {
 // ──────────────────────────────────────────────────────────────────────────────
 export const eventService = {
   /** GET /api/events — returns all events (public) */
-  getAll: () => apiRequest('/events'),
+  getAll: (params = {}) => {
+    const q = new URLSearchParams(params).toString();
+    return apiRequest(`/events${q ? `?${q}` : ''}`);
+  },
 
   /** GET /api/events/:id — returns a single event (public) */
   getById: (id) => apiRequest(`/events/${id}`),
@@ -151,10 +154,14 @@ export const eventService = {
    * POST /api/events/:id/register — register the logged-in student for an event
    * Requires: Bearer token (student only)
    */
-  register: (id) =>
+  register: (id, data) =>
     apiRequest(`/events/${id}/register`, {
       method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
     }),
+
+  /** GET /api/events/:eventId/registrations — fetch registrations for an event */
+  getRegistrations: (eventId) => apiRequest(`/events/${eventId}/registrations`),
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -193,15 +200,92 @@ export const adminService = {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Faculty Service  →  /api/faculty/*
-// Backend route: PUT /approve-organizer/:id (faculty only)
 // ──────────────────────────────────────────────────────────────────────────────
 export const facultyService = {
-  /**
-   * PUT /api/faculty/approve-organizer/:id
-   * Requires: Bearer token (faculty only)
-   */
   approveOrganizer: (userId) =>
     apiRequest(`/faculty/approve-organizer/${userId}`, {
       method: 'PUT',
+    }),
+  getOrganizers: () => apiRequest('/users?role=organizer'),
+  getDashboard: () => apiRequest('/faculty/dashboard'),
+  getPendingEvents: () => apiRequest('/faculty/events/pending'),
+  updateEventStatus: (eventId, status) =>
+    apiRequest(`/faculty/events/${eventId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
+  getRegistrations: (eventId) =>
+    apiRequest(`/faculty/events/${eventId}/registrations`),
+  scanQR: (qrCodeId) =>
+    apiRequest('/faculty/attendance/scan', {
+      method: 'POST',
+      body: JSON.stringify({ qrCodeId }),
+    }),
+  createAnnouncement: (announcementData) =>
+    apiRequest('/faculty/announcements', {
+      method: 'POST',
+      body: JSON.stringify(announcementData),
+    }),
+  getReports: () => apiRequest('/faculty/reports'),
+  deleteUser: (userId) =>
+    apiRequest(`/faculty/users/${userId}`, {
+      method: 'DELETE',
+    }),
+  deleteEvent: (eventId) =>
+    apiRequest(`/faculty/events/${eventId}`, {
+      method: 'DELETE',
+    }),
+  deleteRegistration: (regId) =>
+    apiRequest(`/faculty/registrations/${regId}`, {
+      method: 'DELETE',
+    }),
+  updateCoordinationStatus: (eventId, status) =>
+    apiRequest(`/faculty/events/${eventId}/coordination`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }),
+  getFacultyList: () => apiRequest('/users?role=faculty'),
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Student Service  →  /api/student/*
+// ──────────────────────────────────────────────────────────────────────────────
+export const studentService = {
+  getDashboard: () => apiRequest('/student/dashboard'),
+  getEvents: () => apiRequest('/student/events'),
+  register: (eventId) =>
+    apiRequest(`/student/events/${eventId}/register`, {
+      method: 'POST',
+    }),
+  getRegistrations: () => apiRequest('/student/registrations'),
+  selfScan: (eventId) =>
+    apiRequest('/student/attendance/self-scan', {
+      method: 'POST',
+      body: JSON.stringify({ eventId }),
+    }),
+  getCertificates: () => apiRequest('/student/certificates'),
+  getCalendar: () => apiRequest('/student/calendar'),
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Announcement Service  →  /api/announcements/*
+// ──────────────────────────────────────────────────────────────────────────────
+export const announcementService = {
+  getAll: () => apiRequest('/announcements'),
+  create: (announcementData) =>
+    apiRequest('/announcements', {
+      method: 'POST',
+      body: JSON.stringify(announcementData),
+    }),
+};
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Registration Service  →  /api/registrations/*
+// ──────────────────────────────────────────────────────────────────────────────
+export const registrationService = {
+  updateStatus: (id, status, points) =>
+    apiRequest(`/registrations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, points }),
     }),
 };

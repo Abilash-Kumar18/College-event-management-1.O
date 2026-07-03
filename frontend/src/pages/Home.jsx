@@ -3,8 +3,33 @@ import { useNavigate } from 'react-router-dom';
 import { eventService } from '../services/api';
 import './Home.css';
 
-// Import skyline outline background graphic
+// Import images from assets
+import logoImg from '../assets/images/logo.jpg';
 import skylineOutline from '../assets/images/skyline_outline.png';
+import hackathonImg from '../assets/images/hackathon.jpg';
+import robotWarsImg from '../assets/images/robot_wars.jpg';
+import culturalFusionImg from '../assets/images/cultural_fusion.jpg';
+import reactWorkshopImg from '../assets/images/react_workshop.jpg';
+import defaultEventImg from '../assets/images/default_event.jpg';
+
+const getEventImage = (event) => {
+  if (event.imageUrl) return event.imageUrl;
+  if (event.posterUrl) return event.posterUrl;
+  const titleLower = (event.title || '').toLowerCase();
+  if (titleLower.includes('hack') || titleLower.includes('code') || titleLower.includes('tech') || titleLower.includes('program')) {
+    return hackathonImg;
+  }
+  if (titleLower.includes('robo') || titleLower.includes('robot') || titleLower.includes('wars') || titleLower.includes('mech')) {
+    return robotWarsImg;
+  }
+  if (titleLower.includes('cultural') || titleLower.includes('fusion') || titleLower.includes('music') || titleLower.includes('dance') || titleLower.includes('art') || titleLower.includes('fest')) {
+    return culturalFusionImg;
+  }
+  if (titleLower.includes('workshop') || titleLower.includes('react') || titleLower.includes('web') || titleLower.includes('learn') || titleLower.includes('craft')) {
+    return reactWorkshopImg;
+  }
+  return defaultEventImg;
+};
 
 export default function Home() {
   const navigate = useNavigate();
@@ -12,13 +37,8 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [events, setEvents] = useState([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
-  
-  // Chatbot State
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState([
-    { id: 1, text: "👋 Hi there! I'm Campus Event's AI assistant. Ask me anything about hosting or registering for events, or certificates!", sender: 'bot' }
-  ]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [isFullPosterOpen, setIsFullPosterOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -35,7 +55,7 @@ export default function Home() {
     const fetchEvents = async () => {
       try {
         const data = await eventService.getAll();
-        setEvents(data || []);
+        setEvents((data || []).filter(e => e.status === 'Approved'));
       } catch (err) {
         console.warn("Failed to fetch events:", err);
       } finally {
@@ -45,11 +65,22 @@ export default function Home() {
     fetchEvents();
   }, []);
 
+  useEffect(() => {
+    if (selectedEvent) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedEvent]);
+
   const handleDashboardClick = () => {
     if (isLoggedIn) {
       navigate('/dashboard');
     } else {
-      navigate('/login');
+      navigate('/login?role=Student');
     }
   };
 
@@ -61,44 +92,57 @@ export default function Home() {
     navigate('/');
   };
 
-  const handleChatSubmit = (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
+  const formatDate = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
 
-    const userMsg = { id: Date.now(), text: chatInput, sender: 'user' };
-    setChatMessages(prev => [...prev, userMsg]);
-    const inputLower = chatInput.toLowerCase();
-    setChatInput('');
+  const formatEventDateRange = (evt) => {
+    if (!evt) return '';
+    const start = evt.fromDate || evt.dateTime || evt.date;
+    const end = evt.toDate;
+    if (!start) return '';
 
-    // Generate responsive bot message
-    setTimeout(() => {
-      let botText = "Thank you for asking! I'm happy to help. Let me know if you need info about events, QR check-ins, or certificate verification.";
-      
-      if (inputLower.includes('host') || inputLower.includes('create') || inputLower.includes('organize')) {
-        botText = "To host an event, sign up or log in as an 'Organizer'. Once approved, navigate to the 'Event Plan' tab on your dashboard to start setting up events, capacity limits, and custom registration forms!";
-      } else if (inputLower.includes('certificate') || inputLower.includes('cert') || inputLower.includes('award')) {
-        botText = "Campus Event generates verifiably secure QR certificates automatically! Once the coordinator marks your attendance, your PDF certificate is generated instantly and can be downloaded from the 'My Certificates' tab.";
-      } else if (inputLower.includes('qr') || inputLower.includes('attendance') || inputLower.includes('check')) {
-        botText = "Attendance is tracked seamlessly via QR codes. Students can view their event-specific QR pass, and event staff scan it using the scanner tool inside the dashboard to mark presence instantly.";
-      } else if (inputLower.includes('login') || inputLower.includes('signup') || inputLower.includes('register')) {
-        botText = "Simply click 'Go to Dashboard' at the top of the page. If you don't have an account, select 'Sign Up' and register as either a Student or an Organizer.";
-      }
+    const dStart = new Date(start);
+    const startStr = isNaN(dStart.getTime()) ? '' : dStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!end) return startStr;
 
-      setChatMessages(prev => [...prev, { id: Date.now() + 1, text: botText, sender: 'bot' }]);
-    }, 600);
+    const dEnd = new Date(end);
+    const endStr = isNaN(dEnd.getTime()) ? '' : dEnd.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    if (startStr === endStr) return startStr;
+    return `${startStr} - ${endStr}`;
+  };
+
+  const getEventMode = (event) => {
+    if (event && event.mode) {
+      return event.mode.charAt(0).toUpperCase() + event.mode.slice(1).toLowerCase();
+    }
+    const locationStr = (event && (event.location || event.venue) || '').toLowerCase();
+    if (locationStr.includes('online') || locationStr.includes('zoom') || locationStr.includes('meet') || locationStr.includes('teams') || locationStr.includes('virtual')) {
+      return 'Online';
+    }
+    return 'Offline';
   };
 
   return (
     <div className="home-container">
+      {/* Background Blobs (React Bits style background animation) */}
+      <div className="home-background-blobs">
+        <div className="blob blob-1"></div>
+        <div className="blob blob-2"></div>
+        <div className="blob blob-3"></div>
+      </div>
+
       {/* Navigation */}
       <nav className="home-navbar">
         <a href="/" className="home-logo">
-          <span>⚡</span> Campus Event
+          <img src={logoImg} alt="KSR Logo" className="navbar-logo-img" />
+          <span className="logo-text">KSRCE</span>
         </a>
         <div className="home-nav-links">
-          <a href="#features" className="home-nav-link">Features</a>
-          <a href="#services" className="home-nav-link">Services</a>
-          <a href="#upcoming" className="home-nav-link">Events</a>
           {isLoggedIn ? (
             <>
               <button onClick={handleDashboardClick} className="home-nav-btn btn-secondary-outline">
@@ -110,7 +154,7 @@ export default function Home() {
             </>
           ) : (
             <>
-              <button onClick={() => navigate('/login')} className="home-nav-btn btn-secondary-outline">
+              <button onClick={() => navigate('/login?role=Student')} className="home-nav-btn btn-secondary-outline">
                 Sign In
               </button>
               <button onClick={() => navigate('/signup')} className="home-nav-btn btn-primary-gradient">
@@ -121,487 +165,301 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Hero Section */}
+      {/* Hero Header Section */}
       <header className="home-hero">
-        <div className="home-hero-badge">
-          ✨ THE NEXT-GEN COLLEGE EVENT MANAGEMENT PLATFORM
+        <div className="college-logo-container animate-fade-in">
+          <img src={logoImg} alt="K.S.R. College Of Engineering Logo" className="college-brand-logo" />
         </div>
-        <h1>Transform Your Events With Real-Time Engagement</h1>
-        <p>
-          Campus Event revolutionizes event management with instant RSVPs, live feedback, 
-          and actionable insights. Perfect for college clubs, hackathons, workshops, and campus festivals.
-        </p>
-        <div className="home-hero-actions">
-          <button onClick={handleDashboardClick} className="home-nav-btn btn-primary-gradient btn-large">
-            {isLoggedIn ? 'Go to Dashboard' : 'Get Started Now'}
-          </button>
-          <a href="#features" className="home-nav-btn btn-secondary-outline btn-large" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-            View Live Features
-          </a>
-        </div>
+        <h1 className="college-title animate-slide-up">K.S.R College Of Engineering</h1>
+        <p className="product-subtitle animate-slide-up-delay">College Event Management</p>
       </header>
 
-      {/* Quick Features */}
-      <section id="features" className="home-quick-features">
-        <div className="quick-feature-card">
-          <div className="quick-feature-icon">📝</div>
-          <h3>Real-Time RSVPs</h3>
-          <p>Track student attendance, confirm RSVP limits, and manage guest registrations in real time with auto-updates.</p>
-        </div>
-        <div className="quick-feature-card">
-          <div className="quick-feature-icon">💬</div>
-          <h3>Live Feedback</h3>
-          <p>Capture audience sentiment during your event with interactive polls, emoji reactions, and live Q&A sessions.</p>
-        </div>
-        <div className="quick-feature-card">
-          <div className="quick-feature-icon">📊</div>
-          <h3>Powerful Analytics</h3>
-          <p>Gain insights into registration conversion, attendance ratios, and feedback trends immediately after each event.</p>
-        </div>
-      </section>
-
-      <div className="home-section-divider">
-        <button onClick={() => {
-          document.getElementById('future-section').scrollIntoView({ behavior: 'smooth' });
-        }} className="btn-text-glow">
-          Explore Future Event Management <span>↓</span>
-        </button>
-      </div>
-
-
-
-      {/* Why Campus Event Section */}
-      <section id="future-section" className="home-section" style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}>
+      {/* Events Section */}
+      <main className="events-section-container">
         <div className="section-title-block">
-          <span className="section-subtitle">THE SYSTEM IN ACTION</span>
-          <h2>Why Campus Event is the Future of Event Management</h2>
-          <p>Discover the comprehensive suite of features that make Campus Event the most advanced AI-driven event management platform.</p>
+          <h2>Active Campus Events</h2>
+          <p>Explore technical symposiums, workshops, and cultural fests hosted across departments.</p>
         </div>
 
-        <div className="features-grid">
-          <div className="feature-grid-card">
-            <div className="feature-grid-header">
-              <span className="feature-grid-icon">⚡</span>
-              <h3>Real-Time Engagement</h3>
-            </div>
-            <p>Live Q&A, instant feedback, and dynamic leaderboards keep your college audience highly engaged throughout the event duration.</p>
+        {loadingEvents ? (
+          <div className="loading-container">
+            <span className="spinner"></span>
+            <p>Loading college events...</p>
           </div>
-          <div className="feature-grid-card">
-            <div className="feature-grid-header">
-              <span className="feature-grid-icon">📊</span>
-              <h3>Advanced Analytics</h3>
-            </div>
-            <p>Comprehensive insights with engagement metrics, feedback analysis, attendance tracking, and custom reporting dashboard.</p>
+        ) : events.length === 0 ? (
+          <div className="no-events-container">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--h-primary)', marginBottom: '12px' }}>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <h3>No Active Events</h3>
+            <p>Check back later for newly published departmental events.</p>
           </div>
-          <div className="feature-grid-card">
-            <div className="feature-grid-header">
-              <span className="feature-grid-icon">🏆</span>
-              <h3>Certificate Management</h3>
-            </div>
-            <p>Automated certificate generation, QR code verification, design templates, and direct feedback submission for authentic credentials.</p>
-          </div>
-          <div className="feature-grid-card">
-            <div className="feature-grid-header">
-              <span className="feature-grid-icon">👥</span>
-              <h3>Social Networking</h3>
-            </div>
-            <p>Connect with other attendees, share experiences, create personalized portfolios, and build lasting professional college connections.</p>
-          </div>
-          <div className="feature-grid-card">
-            <div className="feature-grid-header">
-              <span className="feature-grid-icon">🎮</span>
-              <h3>Gamification</h3>
-            </div>
-            <p>Point system, leaderboards, achievements, and interactive challenges that make attending college events fun, competitive, and memorable.</p>
-          </div>
-          <div className="feature-grid-card">
-            <div className="feature-grid-header">
-              <span className="feature-grid-icon">📱</span>
-              <h3>QR Code System</h3>
-            </div>
-            <p>Seamless check-ins, payment validation, digital certificate verification, and attendance tracking through integrated dynamic QR technology.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Premium Services */}
-      <section id="services" className="home-section" style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}>
-        <div className="section-title-block">
-          <span className="section-subtitle">EXCLUSIVE UTILITIES</span>
-          <h2>Premium Services</h2>
-          <p>Professional-grade tools built specifically for college event management and organizational productivity.</p>
-        </div>
-
-        <div className="services-grid">
-          <div className="service-card">
-            <span className="service-icon">🎨</span>
-            <h3>Template Editor</h3>
-            <p>Advanced drag-and-drop template designer with custom background patterns, typography control, and instant preview.</p>
-            <div className="service-tags">
-              <span className="service-tag tag-blue">Drag & Drop</span>
-              <span className="service-tag tag-cyan">Direct Preview</span>
-              <span className="service-tag tag-green">Premium Branding</span>
-            </div>
-          </div>
-          <div className="service-card">
-            <span className="service-icon">🤝</span>
-            <h3>Team Recruitment</h3>
-            <p>Comprehensive job board for recruitment search to apply to projects/clubs that are looking for members to work together.</p>
-            <div className="service-tags">
-              <span className="service-tag tag-green">Team Recruiting</span>
-              <span className="service-tag tag-orange">Member Matching</span>
-              <span className="service-tag tag-cyan">Search Teams</span>
-            </div>
-          </div>
-          <div className="service-card">
-            <span className="service-icon">📋</span>
-            <h3>Smart Registration Forms</h3>
-            <p>Advanced forms with conditional logic fields, multi-user access permissions, and automated bank receipt validation.</p>
-            <div className="service-tags">
-              <span className="service-tag tag-green">Smart Fields</span>
-              <span className="service-tag tag-red">Multi-Step Form</span>
-              <span className="service-tag tag-green">Event Integration</span>
-            </div>
-          </div>
-          <div className="service-card">
-            <span className="service-icon">📈</span>
-            <h3>Analytics Dashboard</h3>
-            <p>Comprehensive tracking of student registration numbers, feedback ratios, certificates claimed, and ROI insights.</p>
-            <div className="service-tags">
-              <span className="service-tag tag-orange">Engagement Metrics</span>
-              <span className="service-tag tag-green">Custom Reports</span>
-              <span className="service-tag tag-blue">Real-Time Stats</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* What Makes Us Different */}
-      <section className="home-section" style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}>
-        <div className="section-title-block">
-          <span className="section-subtitle">THE CAMPUS EVENT ADVANTAGE</span>
-          <h2>What Makes Us Different</h2>
-          <p>Revolutionary features that set Campus Event apart from traditional, outdated event hosting systems.</p>
-        </div>
-
-        <div className="services-grid">
-          <div className="service-card">
-            <span className="service-icon">🏫</span>
-            <h3>B2B College Focus</h3>
-            <p>Built specifically for college campuses, support student clubs, department co-ordinators, and institutional admins.</p>
-            <div className="service-tags">
-              <span className="service-tag tag-blue">College Network</span>
-              <span className="service-tag tag-green">Academic Focus</span>
-            </div>
-          </div>
-          <div className="service-card">
-            <span className="service-icon">🛡️</span>
-            <h3>Trust-Based System</h3>
-            <p>Advanced verification workflows that ensure payments are valid, registrations are authentic, and certificates are secure.</p>
-            <div className="service-tags">
-              <span className="service-tag tag-green">Trust Score</span>
-              <span className="service-tag tag-cyan">Verification</span>
-            </div>
-          </div>
-          <div className="service-card">
-            <span className="service-icon">⚡</span>
-            <h3>Scalable Architecture</h3>
-            <p>Optimized for instantaneous loading speeds. Built on top of dynamic React structures to support thousands of active users.</p>
-            <div className="service-tags">
-              <span className="service-tag tag-red">Cloud Native</span>
-              <span className="service-tag tag-orange">High Performance</span>
-            </div>
-          </div>
-          <div className="service-card">
-            <span className="service-icon">💳</span>
-            <h3>Smart Payment Verification</h3>
-            <p>Automated validation using OCR/AI helper libraries to verify bank transactions and screenshots with 99% accuracy.</p>
-            <div className="service-tags">
-              <span className="service-tag tag-green">Auto Verify</span>
-              <span className="service-tag tag-blue">Secure Payment</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* What Our Users Say */}
-      <section className="home-section" style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}>
-        <div className="section-title-block">
-          <span className="section-subtitle">STUDENT & ORGANIZER FEEDBACK</span>
-          <h2>What Our Users Say</h2>
-          <p>Hear from college students and club organizers who have transformed their event experience using Campus Event.</p>
-        </div>
-
-        <div className="testimonials-grid">
-          <div className="testimonial-card">
-            <p className="testimonial-quote">
-              "Campus Event made hosting our national hackathon seamless. The QR-based check-in cut register queue times down by 90%!"
-            </p>
-            <div className="testimonial-user">
-              <div className="testimonial-avatar">YR</div>
-              <div className="testimonial-info">
-                <h4>Yashwanth Reddy</h4>
-                <span>Coding Club Coordinator, CSE</span>
-              </div>
-            </div>
-          </div>
-          <div className="testimonial-card">
-            <p className="testimonial-quote">
-              "I love how my certificates are automatically updated in my student profile. I can download PDFs in a single click."
-            </p>
-            <div className="testimonial-user">
-              <div className="testimonial-avatar">HA</div>
-              <div className="testimonial-info">
-                <h4>Harish Aditya</h4>
-                <span>B.E Student, IT Dept</span>
-              </div>
-            </div>
-          </div>
-          <div className="testimonial-card">
-            <p className="testimonial-quote">
-              "The registration analytics helped us report attendance counts and feedback ratings to the college management instantly."
-            </p>
-            <div className="testimonial-user">
-              <div className="testimonial-avatar">SM</div>
-              <div className="testimonial-info">
-                <h4>Sanjana Mehta</h4>
-                <span>Arts Club Vice President</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Join Upcoming Events */}
-      <section id="upcoming" className="join-events-section" style={{ borderTop: '1px solid rgba(255,255,255,0.03)' }}>
-        <div className="section-title-block" style={{ marginBottom: '3rem' }}>
-          <h2>Join Upcoming Events</h2>
-          <p>Discover and participate in exciting college events happening right now on campus.</p>
-        </div>
-
-        <div className="join-events-grid">
-          <div className="join-card-dark" style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'stretch', width: '100%', padding: '2rem 1.5rem', minHeight: '260px' }}>
-            {loadingEvents ? (
-              <p style={{ color: 'var(--text-secondary)' }}>Loading campus events...</p>
-            ) : events.length === 0 ? (
-              <>
-                <p className="no-events">No upcoming events at the moment.</p>
-                <span className="check-back">Check back later for new events!</span>
-              </>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%' }}>
-                {events.filter(e => new Date(e.date) >= new Date()).slice(0, 3).map((event) => (
-                  <div key={event._id} style={{
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                    borderRadius: '12px',
-                    padding: '15px',
-                    textAlign: 'left',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', color: '#818cf8', fontWeight: 'bold' }}>{event.clubName || 'College Club'}</span>
-                      <span style={{ fontSize: '11px', color: '#9ca3af' }}>📅 {new Date(event.date).toLocaleDateString()}</span>
+        ) : (
+          <div className="home-events-grid">
+            {events.map((event) => {
+              const formattedDate = formatDate(event.date);
+              const eventMode = getEventMode(event);
+              return (
+                <div key={event._id} className="home-event-card">
+                  <div className="card-image-wrapper">
+                    <img src={getEventImage(event)} alt={event.title} className="card-image" />
+                    <span className="card-badge">{event.clubName || 'KSRCE Event'}</span>
+                  </div>
+                  <div className="card-content">
+                    <h3 className="card-title">{event.title}</h3>
+                    <p className="card-description">
+                      {event.description?.length > 110 ? `${event.description.substring(0, 110)}...` : event.description}
+                    </p>
+                    <div className="card-meta-row" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                      <span style={{ display: 'flex', alignItems: 'center' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                          <line x1="16" y1="2" x2="16" y2="6"></line>
+                          <line x1="8" y1="2" x2="8" y2="6"></line>
+                          <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        {formatEventDateRange(event)}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <line x1="2" y1="12" x2="22" y2="12"></line>
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                        </svg>
+                        {eventMode} ({event.venue || event.location || 'Main Campus'})
+                      </span>
                     </div>
-                    <h4 style={{ margin: '0', fontSize: '16px', color: '#fff' }}>{event.title}</h4>
-                    <p style={{ margin: '0', fontSize: '13px', color: '#9ca3af', wordBreak: 'break-word' }}>{event.description}</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '5px' }}>
-                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>📍 {event.location}</span>
+                    <div className="card-actions">
+                      <button onClick={() => setSelectedEvent(event)} className="btn-card-outline">
+                        Details
+                      </button>
                       <button
                         onClick={() => {
                           if (!isLoggedIn) {
-                            alert("Please sign in to register for events!");
-                            navigate('/login');
+                            navigate('/login?role=Student');
                           } else {
                             navigate(`/register?eventId=${event._id}`);
                           }
                         }}
-                        style={{
-                          background: '#4f46e5',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: '600'
-                        }}
+                        className="btn-card-primary"
                       >
-                        {isLoggedIn ? 'Register Now' : 'Sign In to Register'}
+                        Register
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              );
+            })}
           </div>
-
-          <div className="join-card-cta">
-            <h3>Want to see your event here?</h3>
-            <p>Start creating today and be featured directly on our homepage.</p>
-            <button onClick={handleDashboardClick} className="btn-secondary-flat">
-              Host an Event
-            </button>
-          </div>
-        </div>
-      </section>
+        )}
+      </main>
 
       {/* Footer */}
-      <footer className="home-footer" style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Skyline Outline background div */}
-        <div className="footer-skyline" style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '120px',
-          backgroundImage: `url(${skylineOutline})`,
-          backgroundRepeat: 'repeat-x',
-          backgroundPosition: 'top center',
-          backgroundSize: 'auto 120px',
-          opacity: 0.18,
-          filter: 'invert(1)',
-          pointerEvents: 'none'
-        }} />
+      <footer className="home-footer">
+        <div className="footer-skyline" style={{ backgroundImage: `url(${skylineOutline})` }} />
 
-        <div className="footer-top" style={{ marginTop: '60px' }}>
+        <div className="footer-top" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '30px' }}>
           <div className="footer-brand">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '1.2rem' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 12h4m-2-2v4m5-2h.01M17 12h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
-              </svg>
-              <span style={{ fontSize: '20px', fontWeight: '800', color: '#fff', letterSpacing: '0.5px' }}>Campus Event</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+              <img src={logoImg} alt="KSR Logo" style={{ width: '28px', height: '28px', borderRadius: '4px' }} />
+              <span style={{ fontSize: '18px', fontWeight: '800', color: 'var(--ace-text)' }}>KSRCE Events</span>
             </div>
-            <p style={{ maxWidth: '300px' }}>
-              Life is full of events. Don't let them pass unnoticed. Explore, experience, and excel with Campus Event – your ultimate college event companion.
+            <p style={{ maxWidth: '400px' }}>
+              Official Event Management Portal of K.S.R College Of Engineering. Streamlining student registrations, schedules, and certificate issuance.
             </p>
-            <div className="footer-social-links">
-              {/* Facebook */}
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="social-circle-btn" aria-label="Facebook">
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z"/>
-                </svg>
-              </a>
-              {/* Instagram / Threads */}
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="social-circle-btn" aria-label="Instagram">
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>
-                </svg>
-              </a>
-              {/* YouTube */}
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="social-circle-btn" aria-label="YouTube">
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.517 0-9.388.508a3.003 3.003 0 0 0-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 0 0 2.11 2.11c1.871.508 9.388.508 9.388.508s7.517 0 9.388-.508a3.003 3.003 0 0 0 2.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                </svg>
-              </a>
-              {/* X / Twitter */}
-              <a href="https://x.com" target="_blank" rel="noopener noreferrer" className="social-circle-btn" aria-label="X">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
-              </a>
-              {/* LinkedIn */}
-              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="social-circle-btn" aria-label="LinkedIn">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-                </svg>
-              </a>
-            </div>
           </div>
 
-          <div className="footer-column">
-            <h4>Quick Links</h4>
-            <ul className="footer-links-list">
-              <li><a href="#features">Trending Events</a></li>
-              <li><a href="#features">Upcoming Fests</a></li>
-              <li><a href="#features">Event Types</a></li>
-              <li><a href="#services">Organizers</a></li>
-            </ul>
-          </div>
-
-          <div className="footer-column">
-            <h4>Support</h4>
-            <ul className="footer-links-list">
-              <li><a href="#features">About us</a></li>
-              <li><a href="#features">FAQ</a></li>
-              <li><a href="#features">Contact</a></li>
-              <li><a href="#features">Feedback</a></li>
-            </ul>
-          </div>
-
-          <div className="footer-column">
-            <h4>Legal</h4>
-            <ul className="footer-links-list">
-              <li><a href="#features">Privacy Policy</a></li>
-              <li><a href="#features">Terms & Conditions</a></li>
-              <li><a href="#features">Cookie Policy</a></li>
-              <li><a href="#features">Disclaimer</a></li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Support Email Row aligned to the right columns */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', maxWidth: '1200px', margin: '0 auto 2.5rem', paddingRight: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a5a2bc', fontSize: '0.875rem' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-              <polyline points="22,6 12,13 2,6" />
-            </svg>
-            <a href="mailto:support@campusevent.com" style={{ color: '#a5a2bc', textDecoration: 'none', transition: 'color 0.2s' }} onMouseOver={(e) => e.target.style.color = '#fff'} onMouseOut={(e) => e.target.style.color = '#a5a2bc'}>
-              support@campusevent.com
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <a
+              href="https://ksrce.ac.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-card-outline"
+              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              Visit KSRCE Website
             </a>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <p>© 2026 Campus Event. Powered by ECLearnix EdTech Private Limited.</p>
-          <div className="footer-bottom-links">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '6px 14px', borderRadius: '20px', fontSize: '0.78rem', color: '#34d399', fontWeight: '600' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', boxShadow: '0 0 8px #10b981', display: 'inline-block' }}></span>
-              All Systems Operational
-            </div>
-          </div>
+          <p>© 2026 K.S.R College Of Engineering. All Rights Reserved.</p>
         </div>
       </footer>
 
-      {/* Floating Chatbot Widget */}
-      <button onClick={() => setIsChatOpen(!isChatOpen)} className="chatbot-float-trigger" aria-label="Support Assistant">
-        💬
-      </button>
+      {/* Event Details Modal */}
+      {/* Event Details Modal */}
+      {selectedEvent && (() => {
+        const formattedDate = formatDate(selectedEvent.date);
+        const eventMode = getEventMode(selectedEvent);
+        const isFull = selectedEvent.registrationsCount >= selectedEvent.maxParticipants;
+        return (
+          <div className="modal-overlay" onClick={() => setSelectedEvent(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+              <div className="modal-header">
+                <h3>{selectedEvent.title}</h3>
+                <button className="modal-close-btn" onClick={() => setSelectedEvent(null)}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+              <div className="modal-body" style={{ fontFamily: 'var(--ace-font, "Outfit", sans-serif)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <img
+                    src={getEventImage(selectedEvent)}
+                    alt={selectedEvent.title}
+                    onClick={() => setIsFullPosterOpen(true)}
+                    style={{ width: '100%', height: '220px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)' }}
+                    title="Click to view full size poster"
+                  />
+                  <div>
+                    <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Hosting Club / Department</strong>
+                    <div style={{ fontSize: '14px', color: 'var(--ace-text)', lineHeight: '1.5' }}>{selectedEvent.clubName || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Date & Time</strong>
+                    <div style={{ fontSize: '14px', color: 'var(--ace-text)', lineHeight: '1.5' }}>
+                      {formatEventDateRange(selectedEvent)}
+                    </div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Mode of Event</strong>
+                    <div style={{ fontSize: '14px', color: 'var(--ace-primary, #10b981)', fontWeight: 'bold', lineHeight: '1.5' }}>
+                      {eventMode}
+                    </div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Venue Location</strong>
+                    <div style={{ fontSize: '14px', color: 'var(--ace-text)', lineHeight: '1.5' }}>{selectedEvent.venue || selectedEvent.location || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Participation & Pricing</strong>
+                    <div style={{ fontSize: '14px', color: 'var(--ace-text)', lineHeight: '1.5' }}>
+                      Price: <span style={{ textTransform: 'capitalize', fontWeight: 'bold' }}>{selectedEvent.priceType || 'Free'}</span>
+                      {selectedEvent.priceType === 'paid' && ` (Entry Fee: ₹${selectedEvent.entryFee} per person)`}
+                      &nbsp;|&nbsp;
+                      Type: <span style={{ textTransform: 'capitalize', fontWeight: 'bold' }}>{selectedEvent.registrationType || 'Solo'} Registration</span>
+                    </div>
+                  </div>
+                  {selectedEvent.capacity && (
+                    <div>
+                      <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Maximum Capacity</strong>
+                      <div style={{ fontSize: '14px', color: 'var(--ace-text)', lineHeight: '1.5' }}>{selectedEvent.capacity} participants ({selectedEvent.registrationsCount || 0} registered)</div>
+                    </div>
+                  )}
 
-      {isChatOpen && (
-        <div className="mock-chat-window">
-          <div className="chat-window-header">
-            <div className="chat-header-info">
-              <div className="chat-header-avatar">🤖</div>
-              <div className="chat-header-status">
-                <h4>Campus Event Bot</h4>
-                <span>Online</span>
+                  {selectedEvent.studentCoordinators && selectedEvent.studentCoordinators.length > 0 && (
+                    <div>
+                      <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Student Coordinators</strong>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {selectedEvent.studentCoordinators.map((coord, idx) => (
+                          <div key={idx} style={{ 
+                            padding: '12px', 
+                            background: 'rgba(255,255,255,0.03)', 
+                            borderRadius: '8px', 
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            fontSize: '14px',
+                            lineHeight: '1.5'
+                          }}>
+                            <div style={{ fontWeight: '700', color: 'var(--brand-green-light)', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '4px', marginBottom: '2px' }}>
+                              <span>👤</span> Coordinator {idx + 1}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px' }}>
+                              <span style={{ color: 'var(--ace-text-muted)', fontWeight: '600' }}>Name:</span>
+                              <span style={{ color: 'var(--ace-text)' }}>{coord.name}</span>
+                              
+                              <span style={{ color: 'var(--ace-text-muted)', fontWeight: '600' }}>Reg No:</span>
+                              <span style={{ color: 'var(--ace-text)' }}>{coord.regNo}</span>
+                              
+                              <span style={{ color: 'var(--ace-text-muted)', fontWeight: '600' }}>Department:</span>
+                              <span style={{ color: 'var(--ace-text)' }}>{coord.dept}</span>
+                              
+                              <span style={{ color: 'var(--ace-text-muted)', fontWeight: '600' }}>Phone Number:</span>
+                              <span style={{ color: 'var(--ace-text)' }}>{coord.phone}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(selectedEvent.requestedFaculty || selectedEvent.facultyContact) && (
+                    <div>
+                      <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Faculty Coordinator / Contact</strong>
+                      <div style={{ fontSize: '14px', color: 'var(--ace-text)', lineHeight: '1.5' }}>
+                        {selectedEvent.requestedFaculty?.name ? `🎓 Prof. ${selectedEvent.requestedFaculty.name} (${selectedEvent.requestedFaculty.email})` : ''}
+                        {selectedEvent.facultyContact ? ` | Contact: ${selectedEvent.facultyContact}` : ''}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <strong style={{ fontSize: '13px', fontWeight: '700', color: 'var(--brand-green-light)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>Event Description</strong>
+                    <p style={{ color: 'var(--ace-text-muted)', fontSize: '14px', lineHeight: '1.6', marginTop: '4px', whiteSpace: 'pre-line', margin: 0 }}>
+                      {selectedEvent.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer" style={{ fontFamily: 'var(--ace-font, "Outfit", sans-serif)' }}>
+                <button className="dash-btn dash-btn-secondary" onClick={() => setSelectedEvent(null)}>
+                  Close
+                </button>
+                <button
+                  disabled={isFull}
+                  onClick={() => {
+                    if (isFull) return;
+                    setSelectedEvent(null);
+                    if (!isLoggedIn || !user || user.role !== 'student') {
+                      navigate('/login?role=Student');
+                    } else {
+                      navigate(`/register?eventId=${selectedEvent._id}`);
+                    }
+                  }}
+                  className="dash-btn dash-btn-primary"
+                  style={isFull ? { background: '#ef4444', borderColor: '#ef4444' } : {}}
+                >
+                  {isFull ? 'Event Full' : 'Register Event'}
+                </button>
               </div>
             </div>
-            <button onClick={() => setIsChatOpen(false)} className="chat-close-btn">✕</button>
           </div>
+        );
+      })()}
 
-          <div className="chat-window-messages">
-            {chatMessages.map(msg => (
-              <div key={msg.id} className={`chat-message ${msg.sender === 'bot' ? 'msg-bot' : 'msg-user'}`}>
-                {msg.text}
-              </div>
-            ))}
-          </div>
-
-          <form onSubmit={handleChatSubmit} className="chat-window-input-bar">
-            <input 
-              type="text" 
-              placeholder="Type your message..." 
-              value={chatInput}
-              onChange={e => setChatInput(e.target.value)}
-              className="chat-message-input" 
+      {/* Lightbox for full size poster */}
+      {isFullPosterOpen && selectedEvent && (
+        <div
+          className="modal-overlay"
+          onClick={() => setIsFullPosterOpen(false)}
+          style={{ zIndex: 9999, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+            <img
+              src={getEventImage(selectedEvent)}
+              alt={selectedEvent.title}
+              style={{ width: '100%', height: 'auto', maxHeight: '85vh', objectFit: 'contain', borderRadius: '8px' }}
             />
-            <button type="submit" className="btn-chat-send">➤</button>
-          </form>
+            <button
+              onClick={() => setIsFullPosterOpen(false)}
+              style={{ position: 'absolute', top: '-40px', right: '0', background: 'none', border: 'none', color: '#fff', fontSize: '32px', cursor: 'pointer' }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
     </div>

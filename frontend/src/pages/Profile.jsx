@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService, eventService } from '../services/api';
+import logoImg from '../assets/images/logo.jpg';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
 import './Profile.css';
 
 export default function Profile() {
   const navigate = useNavigate();
+  const [isDobPickerOpen, setIsDobPickerOpen] = useState(false);
   const [user, setUser] = useState({
     name: 'Sridhar Venkataraman',
     email: 'sridharvenkataraman16@gmail.com',
@@ -70,6 +74,18 @@ export default function Profile() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState('');
   const [settingsSuccess, setSettingsSuccess] = useState('');
+
+  useEffect(() => {
+    const isAnyModalOpen = isEventDetailModalOpen || isEditModalOpen || isPasswordModalOpen || isDeleteModalOpen;
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isEventDetailModalOpen, isEditModalOpen, isPasswordModalOpen, isDeleteModalOpen]);
 
   useEffect(() => {
     // 1. Load user from localStorage
@@ -149,16 +165,9 @@ export default function Profile() {
       // Fetch all events
       try {
         const allEvents = await eventService.getAll();
-        setEvents(allEvents);
+        setEvents(allEvents || []);
       } catch (err) {
-        // Fallback to default mock events
-        const defaultEvents = [
-          { _id: 'mock_event_1', title: 'Smart Tech Hackathon', description: 'A 24-hour coding marathon where students solve real-world industry challenges using cutting-edge AI and web technologies.', date: '2026-07-15T09:00:00.000Z', location: 'Main Seminar Hall', capacity: 100, clubName: 'Coding Club', organizer: { name: 'Coding Club Coordinator', email: 'coding@college.edu' } },
-          { _id: 'mock_event_2', title: 'Robo Wars 2026', description: 'Design, build, and battle! Watch custom-engineered robots clash in a high-octane battle arena to win the grand cash prize.', date: '2026-07-22T10:00:00.000Z', location: 'College Indoor Stadium', capacity: 60, clubName: 'Robotics Club', organizer: { name: 'Robotics Coordinator', email: 'robotics@college.edu' } },
-          { _id: 'mock_event_3', title: 'Cultural Fusion 2026', description: 'An evening of music, choreography, and dramatic performances celebrating national heritage and student talent.', date: '2026-08-05T17:00:00.000Z', location: 'Open Air Auditorium', capacity: 600, clubName: 'Arts & Music Club', organizer: { name: 'Cultural Committee', email: 'cultural@college.edu' } },
-          { _id: 'mock_event_4', title: 'Web Craft React Workshop', description: 'Learn modern single-page application development using React, Vite, and tailwind. Perfect for beginners and intermediates.', date: '2026-06-10T10:00:00.000Z', location: 'CSE Department Lab 3', capacity: 40, clubName: 'Web Dev Club', organizer: { name: 'Web Dev Coordinator', email: 'webdev@college.edu' } }
-        ];
-        setEvents(defaultEvents);
+        setEvents([]);
       }
     };
 
@@ -258,6 +267,91 @@ export default function Profile() {
     e.preventDefault();
     setSettingsError('');
     setSettingsSuccess('');
+
+    const form = e.target;
+
+    // Check basic HTML5 validity
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    // Name validations
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    const nameInput = form.querySelector('input[name="name"]');
+    if (nameInput) {
+      if (!nameRegex.test(editForm.name)) {
+        nameInput.setCustomValidity("Name must contain only alphabets and spaces.");
+        nameInput.reportValidity();
+        nameInput.focus();
+        return;
+      }
+      if (editForm.name.length >= 50) {
+        nameInput.setCustomValidity("Name must be less than 50 characters.");
+        nameInput.reportValidity();
+        nameInput.focus();
+        return;
+      }
+      nameInput.setCustomValidity("");
+    }
+
+    // Phone validations
+    const mobileInput = form.querySelector('input[name="mobileNumber"]');
+    if (mobileInput && editForm.mobileNumber) {
+      const cleanMobile = editForm.mobileNumber.replace(/\D/g, '');
+      if (cleanMobile.length !== 10 || !/^\d{10}$/.test(editForm.mobileNumber)) {
+        mobileInput.setCustomValidity("Phone number must contain only numbers and be exactly 10 digits.");
+        mobileInput.reportValidity();
+        mobileInput.focus();
+        return;
+      }
+      mobileInput.setCustomValidity("");
+    }
+
+    // Date of Birth validation
+    if (editForm.dob) {
+      const dobDate = new Date(editForm.dob);
+      const today = new Date();
+      if (dobDate >= today) {
+        alert("Date of Birth must be a past date.");
+        return;
+      }
+    }
+
+    // Country, State, City validations
+    const countryInput = form.querySelector('input[name="country"]');
+    if (countryInput && editForm.country) {
+      if (!nameRegex.test(editForm.country)) {
+        countryInput.setCustomValidity("Country must contain only alphabets and spaces.");
+        countryInput.reportValidity();
+        countryInput.focus();
+        return;
+      }
+      countryInput.setCustomValidity("");
+    }
+
+    const stateInput = form.querySelector('input[name="state"]');
+    if (stateInput && editForm.state) {
+      if (!nameRegex.test(editForm.state)) {
+        stateInput.setCustomValidity("State must contain only alphabets and spaces.");
+        stateInput.reportValidity();
+        stateInput.focus();
+        return;
+      }
+      stateInput.setCustomValidity("");
+    }
+
+    const cityInput = form.querySelector('input[name="city"]');
+    if (cityInput && editForm.city) {
+      if (!nameRegex.test(editForm.city)) {
+        cityInput.setCustomValidity("City must contain only alphabets and spaces.");
+        cityInput.reportValidity();
+        cityInput.focus();
+        return;
+      }
+      cityInput.setCustomValidity("");
+    }
+
     setSettingsLoading(true);
 
     try {
@@ -288,9 +382,50 @@ export default function Profile() {
     setSettingsError('');
     setSettingsSuccess('');
 
+    const form = e.target;
+
+    const newPasswordInput = form.querySelector('input[name="newPassword"]');
+    const confirmPasswordInput = form.querySelector('input[name="confirmNewPassword"]');
+
     if (passwordForm.newPassword !== passwordForm.confirmNewPassword) {
-      setSettingsError('New passwords do not match.');
+      if (confirmPasswordInput) {
+        confirmPasswordInput.setCustomValidity('New passwords do not match.');
+        confirmPasswordInput.reportValidity();
+        confirmPasswordInput.focus();
+      }
       return;
+    } else if (confirmPasswordInput) {
+      confirmPasswordInput.setCustomValidity('');
+    }
+
+    if (passwordForm.newPassword.length < 8) {
+      if (newPasswordInput) {
+        newPasswordInput.setCustomValidity('New password must be at least 8 characters long.');
+        newPasswordInput.reportValidity();
+        newPasswordInput.focus();
+      }
+      return;
+    }
+    if (/^\d+$/.test(passwordForm.newPassword)) {
+      if (newPasswordInput) {
+        newPasswordInput.setCustomValidity('Password cannot consist of only numbers.');
+        newPasswordInput.reportValidity();
+        newPasswordInput.focus();
+      }
+      return;
+    }
+
+    // Password complexity check
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (!passwordRegex.test(passwordForm.newPassword)) {
+      if (newPasswordInput) {
+        newPasswordInput.setCustomValidity('Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).');
+        newPasswordInput.reportValidity();
+        newPasswordInput.focus();
+      }
+      return;
+    } else if (newPasswordInput) {
+      newPasswordInput.setCustomValidity('');
     }
 
     setSettingsLoading(true);
@@ -356,137 +491,84 @@ export default function Profile() {
     });
   };
 
+  const isFacultyOrOrg = user.role === 'faculty' || user.role === 'organizer';
+  const sidebarTabs = [
+    { id: 'Overview', label: 'My Profile', icon: '👤' },
+    { id: 'Calendar', label: 'Event Calendar', icon: '📅' },
+    ...(!isFacultyOrOrg ? [
+      { id: 'Registered', label: 'Registered Events', icon: '📝' }
+    ] : []),
+    { id: 'Inbox', label: 'Inbox', icon: '📥' }
+  ];
+
   return (
-    <div className="profile-layout-wrapper">
-      {/* Hover-Expanding Sidebar */}
-      <aside 
-        className={`profile-sidebar ${sidebarHovered ? 'hovered' : ''}`}
-        onMouseEnter={() => setSidebarHovered(true)}
-        onMouseLeave={() => setSidebarHovered(false)}
-      >
-        <ul className="sidebar-nav">
-          
-          {/* 1. Profile Accordion */}
-          <li className="sidebar-menu-parent">
-            <div 
-              className={`menu-header-item ${activeSidebar === 'Profile' ? 'active-parent' : ''}`}
-              onClick={(e) => toggleSubmenu('profile', e)}
-            >
-              <span className="menu-icon">👤</span>
-              <span className="menu-label">Profile</span>
-              <span className="menu-arrow">
-                {expandedMenus.profile ? '▲' : '▼'}
-              </span>
-            </div>
-            
-            {expandedMenus.profile && (
-              <ul className="sidebar-submenu">
-                <li 
-                  className={activeTab === 'Overview' ? 'active' : ''} 
-                  onClick={() => { setActiveTab('Overview'); setActiveSidebar('Profile'); }}
-                >
-                  <span className="submenu-bullet">●</span>
-                  <span className="submenu-label">My Profile</span>
-                </li>
-                <li 
-                  className={activeTab === 'Calendar' ? 'active' : ''} 
-                  onClick={() => { setActiveTab('Calendar'); setActiveSidebar('Profile'); }}
-                >
-                  <span className="submenu-bullet">●</span>
-                  <span className="submenu-label">Event Calendar</span>
-                </li>
-              </ul>
-            )}
-          </li>
+    <div className="dashboard-container">
+      {/* Sidebar Navigation matching Dashboard style */}
+      <aside className="dashboard-sidebar open">
+        <div 
+          className="sidebar-header" 
+          onClick={() => navigate('/')}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 0 20px 0', borderBottom: '1px solid var(--dash-border)', marginBottom: '20px', cursor: 'pointer' }}
+          title="Go to Homepage"
+        >
+          <img src={logoImg} alt="KSR Logo" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', border: '1.5px solid var(--dash-border)' }} />
+          <div className="sidebar-title-container">
+            <span className="sidebar-title" style={{ fontSize: '15px', fontWeight: '800', letterSpacing: '0.3px', color: 'var(--dash-text)' }}>CAMPUS EVENTS</span>
+            <span className="sidebar-subtitle" style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}>User Profile</span>
+          </div>
+        </div>
 
-          {/* 2. Activities Accordion */}
-          <li className="sidebar-menu-parent">
-            <div 
-              className={`menu-header-item ${activeSidebar === 'Activities' ? 'active-parent' : ''}`}
-              onClick={(e) => toggleSubmenu('activities', e)}
-            >
-              <span className="menu-icon">📅</span>
-              <span className="menu-label">Activities</span>
-              <span className="menu-arrow">
-                {expandedMenus.activities ? '▲' : '▼'}
-              </span>
-            </div>
-            
-            {expandedMenus.activities && (
-              <ul className="sidebar-submenu">
-                <li 
-                  className={activeTab === 'Saved' ? 'active' : ''} 
-                  onClick={() => { setActiveTab('Saved'); setActiveSidebar('Activities'); }}
-                >
-                  <span className="submenu-bullet">●</span>
-                  <span className="submenu-label">Saved</span>
-                </li>
-                <li 
-                  className={activeTab === 'Liked' ? 'active' : ''} 
-                  onClick={() => { setActiveTab('Liked'); setActiveSidebar('Activities'); }}
-                >
-                  <span className="submenu-bullet">●</span>
-                  <span className="submenu-label">Liked</span>
-                </li>
-                <li 
-                  className={activeTab === 'Registered' ? 'active' : ''} 
-                  onClick={() => { setActiveTab('Registered'); setActiveSidebar('Activities'); }}
-                >
-                  <span className="submenu-bullet">●</span>
-                  <span className="submenu-label">Registered</span>
-                </li>
-              </ul>
-            )}
-          </li>
+        <nav className="sidebar-menu" style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
+          {sidebarTabs.map((tab) => {
+            const props = { width: '18', height: '18', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2.5', strokeLinecap: 'round', strokeLinejoin: 'round', style: { marginRight: '10px', verticalAlign: 'middle' } };
+            let iconSvg = null;
+            if (tab.id === 'Overview') {
+              iconSvg = <svg {...props}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+            } else if (tab.id === 'Calendar') {
+              iconSvg = <svg {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
+            } else if (tab.id === 'Saved') {
+              iconSvg = <svg {...props}><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>;
+            } else if (tab.id === 'Liked') {
+              iconSvg = <svg {...props}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>;
+            } else if (tab.id === 'Registered') {
+              iconSvg = <svg {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"></path></svg>;
+            } else if (tab.id === 'Inbox') {
+              iconSvg = <svg {...props}><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>;
+            } else if (tab.id === 'Settings') {
+              iconSvg = <svg {...props}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+            }
 
-          {/* 3. Inbox Direct Link */}
-          <li 
-            className={`menu-header-item direct-item ${activeTab === 'Inbox' ? 'active' : ''}`} 
-            onClick={() => { setActiveTab('Inbox'); setActiveSidebar('Inbox'); }}
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`nav-item ${activeTab === tab.id ? 'active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', width: '100%', border: 'none', background: 'none', textAlign: 'left', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
+              >
+                {iconSvg}
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="sidebar-footer" style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid var(--dash-border)' }}>
+          <button 
+            onClick={() => navigate('/dashboard')} 
+            className="nav-item" 
+            style={{ width: '100%', display: 'flex', alignItems: 'center', border: 'none', background: 'none', padding: '10px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', color: 'var(--brand-green-light)' }}
           >
-            <span className="menu-icon">📥</span>
-            <span className="menu-label">Inbox</span>
-          </li>
-
-          {/* 4. Settings Accordion */}
-          <li className="sidebar-menu-parent">
-            <div 
-              className={`menu-header-item ${activeSidebar === 'Settings' ? 'active-parent' : ''}`}
-              onClick={(e) => toggleSubmenu('settings', e)}
-            >
-              <span className="menu-icon">⚙️</span>
-              <span className="menu-label">Settings</span>
-              <span className="menu-arrow">
-                {expandedMenus.settings ? '▲' : '▼'}
-              </span>
-            </div>
-            
-            {expandedMenus.settings && (
-              <ul className="sidebar-submenu">
-                <li 
-                  className={activeTab === 'Settings' ? 'active' : ''} 
-                  onClick={() => { setActiveTab('Settings'); setActiveSidebar('Settings'); }}
-                >
-                  <span className="submenu-bullet">●</span>
-                  <span className="submenu-label">Settings</span>
-                </li>
-              </ul>
-            )}
-          </li>
-
-        </ul>
-
-        {/* Dashboard Link at the bottom of sidebar */}
-        <div className="sidebar-footer-btn">
-          <button onClick={() => navigate('/dashboard')} className="goto-dash-btn">
-            <span className="btn-icon">⬅</span>
-            <span className="btn-label">Dashboard</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '10px' }}>
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Dashboard
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="profile-main-content">
+      <main className="dashboard-main" style={{ padding: '30px' }}>
         
         {/* Top Hero Banner */}
         <div className="profile-hero-banner">
@@ -514,104 +596,10 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Tabs switcher at top (synced with sidebar) */}
-        <div className="profile-tabs">
-          {['Overview', 'Stats', 'Badges', 'Settings'].map(tab => (
-            <button 
-              key={tab} 
-              className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab(tab);
-                setSettingsError('');
-                setSettingsSuccess('');
-              }}
-            >
-              {tab === 'Stats' ? '📊 Stats' : tab}
-            </button>
-          ))}
-        </div>
-
         {/* Tab Content */}
         {activeTab === 'Overview' && (
           <div className="tab-content overview-content">
             
-            {/* Top Cards Row */}
-            <div className="overview-top-cards">
-              <div className="score-card">
-                <div className="score-item">
-                  <div className="score-icon yellow">🏆</div>
-                  <div>
-                    <div className="score-label">TOTAL SCORE</div>
-                    <div className="score-value">{points * 3 || 75}</div>
-                  </div>
-                </div>
-                <div className="score-item">
-                  <div className="score-icon purple">⚡</div>
-                  <div>
-                    <div className="score-label">TOTAL POINTS</div>
-                    <div className="score-value">{points}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="streak-card">
-                <div className="streak-icon">🔥</div>
-                <div className="streak-info">
-                  <h3>1 Day Streak <span className="streak-badge">Streak Info</span></h3>
-                  <p>Engage with events today to keep your streak!</p>
-                  <div className="streak-stats">
-                    <div className="streak-stat-item">
-                      <span>LONGEST</span>
-                      <strong>1</strong>
-                    </div>
-                    <div className="streak-stat-item">
-                      <span>TOTAL</span>
-                      <strong>1</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Tier Progression */}
-            <div className="section-block tier-progression">
-              <h3 className="section-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> 
-                TIER PROGRESSION
-                <span className="view-benefits">Compare Benefits</span>
-              </h3>
-              <div className="tiers-container">
-                <div className={`tier-item ${tierInfo.current === 'Bronze' ? 'active' : ''}`}>
-                  <div className="tier-icon bronze">🥉</div>
-                  <div className="tier-details">
-                    <h4>Bronze</h4>
-                    <p>{tierInfo.current === 'Bronze' ? 'Current Tier' : '0+ points'}</p>
-                  </div>
-                </div>
-                <div className={`tier-item ${tierInfo.current === 'Silver' ? 'active' : ''}`}>
-                  <div className="tier-icon silver">🥈</div>
-                  <div className="tier-details">
-                    <h4>Silver</h4>
-                    <p>{tierInfo.current === 'Silver' ? 'Current Tier' : '50+ points'}</p>
-                  </div>
-                </div>
-                <div className={`tier-item ${tierInfo.current === 'Gold' ? 'active' : ''}`}>
-                  <div className="tier-icon gold">🥇</div>
-                  <div className="tier-details">
-                    <h4>Gold</h4>
-                    <p>{tierInfo.current === 'Gold' ? 'Current Tier' : '150+ points'}</p>
-                  </div>
-                </div>
-                <div className={`tier-item ${tierInfo.current === 'Platinum' ? 'active' : ''}`}>
-                  <div className="tier-icon platinum">💎</div>
-                  <div className="tier-details">
-                    <h4>Platinum</h4>
-                    <p>{tierInfo.current === 'Platinum' ? 'Current Tier' : '300+ points'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Personal Profile */}
             <div className="section-block personal-profile">
               <h3 className="section-title">
@@ -632,10 +620,6 @@ export default function Profile() {
                   <span style={{textTransform: 'capitalize'}}>{user.role}</span>
                 </div>
                 <div className="profile-grid-item">
-                  <label>Points Earned</label>
-                  <span>{user.points || 0} pts</span>
-                </div>
-                <div className="profile-grid-item">
                   <label>Member Since</label>
                   <span>{user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : 'July 2026'}</span>
                 </div>
@@ -644,129 +628,47 @@ export default function Profile() {
                   <span className="status-badge active-light">Active User</span>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* Stats Tab Content */}
-        {activeTab === 'Stats' && (
-          <div className="tab-content stats-content">
-            <div className="stats-section-header">
-              <h3>📊 ACTIVITY STATISTICS</h3>
-            </div>
-            <div className="stats-cards-grid">
-              <div className="stat-card heart-card">
-                <div className="stat-card-inner">
-                  <div className="stat-icon-wrapper pink-bg">❤️</div>
-                  <div className="stat-card-details">
-                    <span className="stat-value">{user.heartsCount || 0}</span>
-                    <span className="stat-label">HEARTS</span>
-                  </div>
-                </div>
-              </div>
-              <div className="stat-card save-card">
-                <div className="stat-card-inner">
-                  <div className="stat-icon-wrapper blue-bg">🔖</div>
-                  <div className="stat-card-details">
-                    <span className="stat-value">{user.savesCount || 0}</span>
-                    <span className="stat-label">SAVES</span>
-                  </div>
-                </div>
-              </div>
-              <div className="stat-card share-card">
-                <div className="stat-card-inner">
-                  <div className="stat-icon-wrapper purple-bg">🔗</div>
-                  <div className="stat-card-details">
-                    <span className="stat-value">{user.sharesCount || 0}</span>
-                    <span className="stat-label">SHARES</span>
-                  </div>
-                </div>
-              </div>
-              <div className="stat-card view-card">
-                <div className="stat-card-inner">
-                  <div className="stat-icon-wrapper yellow-bg">👁️</div>
-                  <div className="stat-card-details">
-                    <span className="stat-value">{user.eventViewsCount || 0}</span>
-                    <span className="stat-label">EVENT VIEWS</span>
-                  </div>
-                </div>
-              </div>
-              <div className="stat-card register-card">
-                <div className="stat-card-inner">
-                  <div className="stat-icon-wrapper green-bg">📝</div>
-                  <div className="stat-card-details">
-                    <span className="stat-value">{user.registrationsCount || 0}</span>
-                    <span className="stat-label">REGISTER</span>
-                  </div>
-                </div>
-              </div>
-              <div className="stat-card points-card">
-                <div className="stat-card-inner">
-                  <div className="stat-icon-wrapper orange-bg">⚡</div>
-                  <div className="stat-card-details">
-                    <span className="stat-value">{user.points || 0}</span>
-                    <span className="stat-label">POINTS</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="stats-section-header" style={{ marginTop: '30px' }}>
-              <h3>🏆 RANKING INSIGHTS</h3>
-            </div>
-            <div className="ranking-insights-card">
-              <div className="rank-display">
-                <span className="rank-number">#{currentRank}</span>
-                <span className="rank-label">YOUR GLOBAL RANK</span>
-              </div>
-              <div className="rank-message-wrapper">
-                <p className="rank-message">
-                  Keep participating in events, sharing, and engaging to climb the leaderboard!
-                </p>
-                {tierInfo.ptsAway > 0 && (
-                  <div className="next-tier-badge">
-                    <span className="next-tier-icon">🎖️</span>
-                    <span>Next: <strong>{tierInfo.next}</strong> — {tierInfo.ptsAway} pts away</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Badges Tab Content */}
-        {activeTab === 'Badges' && (
-          <div className="tab-content badges-content">
-            <div className="stats-section-header">
-              <h3>🏅 YOUR BADGES & MILESTONES</h3>
-            </div>
-            <div className="achievements-list" style={{ flexWrap: 'wrap', gap: '20px' }}>
-              <div className="achievement-card">
-                <div className="achievement-icon pink">🎫</div>
-                <div className="achievement-info">
-                  <h4>First Registration</h4>
-                  <p>Registered for your first event!</p>
-                </div>
-              </div>
-              <div className={`achievement-card ${points < 50 ? 'locked-badge' : ''}`} style={points < 50 ? {opacity: 0.5} : {}}>
-                <div className="achievement-icon pink" style={{background: '#e0e7ff', color: '#4f46e5'}}>🥈</div>
-                <div className="achievement-info">
-                  <h4>Silver Medalist</h4>
-                  <p>{points < 50 ? 'Locked (Requires 50 points)' : 'Reached Silver tier milestone!'}</p>
-                </div>
-              </div>
-              <div className={`achievement-card ${points < 150 ? 'locked-badge' : ''}`} style={points < 150 ? {opacity: 0.5} : {}}>
-                <div className="achievement-icon pink" style={{background: '#fef3c7', color: '#d97706'}}>🥇</div>
-                <div className="achievement-info">
-                  <h4>Gold Champion</h4>
-                  <p>{points < 150 ? 'Locked (Requires 150 points)' : 'Reached Gold tier milestone!'}</p>
-                </div>
-              </div>
-              <div className={`achievement-card ${points < 300 ? 'locked-badge' : ''}`} style={points < 300 ? {opacity: 0.5} : {}}>
-                <div className="achievement-icon pink" style={{background: '#fae8ff', color: '#c084fc'}}>💎</div>
-                <div className="achievement-info">
-                  <h4>Platinum Legend</h4>
-                  <p>{points < 300 ? 'Locked (Requires 300 points)' : 'Reached Platinum tier milestone!'}</p>
-                </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
+                <button 
+                  onClick={() => {
+                    setSettingsError('');
+                    setSettingsSuccess('');
+                    setEditForm({
+                      name: user.name || '',
+                      mobileNumber: user.mobileNumber || '',
+                      dob: user.dob || '',
+                      country: user.country || '',
+                      state: user.state || '',
+                      city: user.city || ''
+                    });
+                    setIsEditModalOpen(true);
+                  }} 
+                  className="dash-btn dash-btn-primary"
+                >
+                  ✏️ Edit Profile
+                </button>
+                <button 
+                  onClick={() => {
+                    setSettingsError('');
+                    setSettingsSuccess('');
+                    setPasswordForm({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+                    setIsPasswordModalOpen(true);
+                  }} 
+                  className="dash-btn dash-btn-outline"
+                >
+                  🔒 Change Password
+                </button>
+                <button 
+                  onClick={() => {
+                    setSettingsError('');
+                    setIsDeleteModalOpen(true);
+                  }} 
+                  className="dash-btn dash-btn-secondary"
+                  style={{ color: '#ff6b6b', border: '1px solid #ff6b6b' }}
+                >
+                  🗑️ Delete Account
+                </button>
               </div>
             </div>
           </div>
@@ -778,7 +680,7 @@ export default function Profile() {
             <div className="stats-section-header">
               <h3>📅 MY EVENT CALENDAR</h3>
             </div>
-            <p className="calendar-desc">Track and launch registered campus events for <strong>July 2026</strong>.</p>
+            <p className="calendar-desc">Track campus events for <strong>July 2026</strong>.</p>
             
             <div className="calendar-card">
               <div className="calendar-header-title">
@@ -813,98 +715,62 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Saved Events Tab */}
-        {activeTab === 'Saved' && (
-          <div className="tab-content saved-liked-registered-content">
-            <div className="stats-section-header">
-              <h3>🔖 SAVED EVENTS</h3>
-            </div>
-            {savedIds.length === 0 ? (
-              <div className="no-events-placeholder">
-                <span className="placeholder-icon">📁</span>
-                <p>No saved events yet. Browse events on the Dashboard to save your favorites!</p>
-              </div>
-            ) : (
-              <div className="profile-mini-events-grid">
-                {events.filter(e => savedIds.includes(e._id)).map(event => (
-                  <div key={event._id} className="profile-mini-card">
-                    <h4>{event.title}</h4>
-                    <span className="mini-card-club">{event.clubName || 'College Club'}</span>
-                    <p className="mini-card-meta">📅 {formatDate(event.date)}</p>
-                    <p className="mini-card-meta">📍 {event.location}</p>
-                    <div className="mini-card-actions">
-                      <button onClick={() => { setSelectedEvent(event); setIsEventDetailModalOpen(true); }} className="btn-details">Details</button>
-                      <button onClick={() => handleUnsaveEvent(event._id)} className="btn-remove">Remove</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Liked Events Tab */}
-        {activeTab === 'Liked' && (
-          <div className="tab-content saved-liked-registered-content">
-            <div className="stats-section-header">
-              <h3>❤️ LIKED EVENTS</h3>
-            </div>
-            {likedIds.length === 0 ? (
-              <div className="no-events-placeholder">
-                <span className="placeholder-icon">🤍</span>
-                <p>No liked events yet. Tap the Heart icon on event cards in the Dashboard to show support!</p>
-              </div>
-            ) : (
-              <div className="profile-mini-events-grid">
-                {events.filter(e => likedIds.includes(e._id)).map(event => (
-                  <div key={event._id} className="profile-mini-card">
-                    <h4>{event.title}</h4>
-                    <span className="mini-card-club">{event.clubName || 'College Club'}</span>
-                    <p className="mini-card-meta">📅 {formatDate(event.date)}</p>
-                    <p className="mini-card-meta">📍 {event.location}</p>
-                    <div className="mini-card-actions">
-                      <button onClick={() => { setSelectedEvent(event); setIsEventDetailModalOpen(true); }} className="btn-details">Details</button>
-                      <button onClick={() => handleUnlikeEvent(event._id)} className="btn-unlike">Unlike</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Registered Events Tab */}
         {activeTab === 'Registered' && (
           <div className="tab-content saved-liked-registered-content">
             <div className="stats-section-header">
               <h3>📝 REGISTERED EVENTS</h3>
             </div>
-            {registrations.length === 0 ? (
-              <div className="no-events-placeholder">
-                <span className="placeholder-icon">🎫</span>
-                <p>You have not registered for any events yet.</p>
-              </div>
-            ) : (
-              <div className="profile-mini-events-grid">
-                {registrations.map(reg => {
-                  const event = events.find(e => e._id === reg.eventId) || {
-                    title: reg.eventTitle, date: reg.date, location: 'Main Campus'
-                  };
-                  return (
-                    <div key={reg.id} className="profile-mini-card">
-                      <h4>{event.title}</h4>
-                      <span className={`badge-status ${reg.status.toLowerCase()}`}>{reg.status}</span>
-                      <p className="mini-card-meta">📅 {formatDate(event.date)}</p>
-                      <p className="mini-card-meta">📍 {event.location}</p>
-                      <p className="mini-card-meta" style={{fontSize: '11px', color: '#9ca3af'}}>Registered on: {new Date(reg.date).toLocaleDateString()}</p>
-                      <div className="mini-card-actions">
-                        <button onClick={() => { setSelectedEvent(event); setIsEventDetailModalOpen(true); }} className="btn-details" style={{width: '100%'}}>View Details</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <div className="dash-table-container" style={{ marginTop: '20px' }}>
+              <table className="dash-table">
+                <thead>
+                  <tr>
+                    <th>Event Title</th>
+                    <th>Date & Time</th>
+                    <th>Registration Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registrations.map((reg) => {
+                    const event = events.find(e => e._id === reg.eventId);
+                    return (
+                      <tr key={reg.id}>
+                        <td
+                          style={{ fontWeight: 'bold', color: 'var(--brand-green-light)', cursor: 'pointer' }}
+                          onClick={() => {
+                            if (event) {
+                              setSelectedEvent(event);
+                              setIsEventDetailModalOpen(true);
+                            }
+                          }}
+                        >
+                          {reg.eventTitle}
+                        </td>
+                        <td>
+                          {event ? formatEventDateRange(event) : 'N/A'}
+                        </td>
+                        <td>{new Date(reg.date).toLocaleDateString()}</td>
+                        <td>
+                          <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
+                              reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
+                            }`}>
+                            {reg.status === 'Approved' || reg.status === 'Registered' ? 'Registration Completed' : reg.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {registrations.length === 0 && (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)' }}>
+                        You have not registered for any events yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -914,146 +780,9 @@ export default function Profile() {
             <div className="stats-section-header">
               <h3>📥 NOTIFICATIONS & ANNOUNCEMENTS</h3>
             </div>
-            {announcements.length === 0 ? (
-              <div className="no-events-placeholder">
-                <span className="placeholder-icon">📬</span>
-                <p>Your inbox is empty. No announcements published.</p>
-              </div>
-            ) : (
-              <div className="inbox-list">
-                {announcements.map(ann => (
-                  <div key={ann.id} className="announcement-item">
-                    <div className="ann-meta">
-                      <strong className="ann-author">📢 {ann.author}</strong>
-                      <span className="ann-date">{new Date(ann.date).toLocaleDateString()}</span>
-                    </div>
-                    <h4 className="ann-title">{ann.title}</h4>
-                    <p className="ann-body">{ann.body}</p>
-                    <button 
-                      onClick={() => {
-                        const updated = announcements.filter(a => a.id !== ann.id);
-                        setAnnouncements(updated);
-                        localStorage.setItem('dash_announcements', JSON.stringify(updated));
-                      }} 
-                      className="btn-dismiss"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Settings Tab Content */}
-        {activeTab === 'Settings' && (
-          <div className="tab-content settings-content-tab">
-            <div className="settings-fields-grid">
-              
-              <div className="settings-field-card">
-                <div className="settings-field-icon font-icon">👤</div>
-                <div className="settings-field-details">
-                  <span className="settings-field-label">FULL NAME</span>
-                  <span className="settings-field-value">{user.name}</span>
-                </div>
-              </div>
-
-              <div className="settings-field-card">
-                <div className="settings-field-icon phone-icon">📱</div>
-                <div className="settings-field-details">
-                  <span className="settings-field-label">MOBILE NUMBER</span>
-                  <span className="settings-field-value">{user.mobileNumber || '—'}</span>
-                </div>
-              </div>
-
-              <div className="settings-field-card">
-                <div className="settings-field-icon email-icon">✉️</div>
-                <div className="settings-field-details">
-                  <span className="settings-field-label">EMAIL ADDRESS</span>
-                  <span className="settings-field-value">{user.email}</span>
-                </div>
-              </div>
-
-              <div className="settings-field-card">
-                <div className="settings-field-icon dob-icon">🎂</div>
-                <div className="settings-field-details">
-                  <span className="settings-field-label">BIRTH DATE</span>
-                  <span className="settings-field-value">
-                    {user.dob ? new Date(user.dob).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' }) : 'DOB not added'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="settings-field-card">
-                <div className="settings-field-icon country-icon">🌐</div>
-                <div className="settings-field-details">
-                  <span className="settings-field-label">COUNTRY</span>
-                  <span className="settings-field-value">{user.country || 'Not Specified'}</span>
-                </div>
-              </div>
-
-              <div className="settings-field-card">
-                <div className="settings-field-icon state-icon">🗺️</div>
-                <div className="settings-field-details">
-                  <span className="settings-field-label">STATE</span>
-                  <span className="settings-field-value">{user.state || 'Not Specified'}</span>
-                </div>
-              </div>
-
-              <div className="settings-field-card">
-                <div className="settings-field-icon city-icon">🏙️</div>
-                <div className="settings-field-details">
-                  <span className="settings-field-label">CITY</span>
-                  <span className="settings-field-value">{user.city || 'Not Specified'}</span>
-                </div>
-              </div>
-
-            </div>
-
-            <div className="settings-action-buttons">
-              <button onClick={() => {
-                setEditForm({
-                  name: user.name || '',
-                  mobileNumber: user.mobileNumber || '',
-                  dob: user.dob ? new Date(user.dob).toISOString().split('T')[0] : '',
-                  country: user.country || '',
-                  state: user.state || '',
-                  city: user.city || ''
-                });
-                setSettingsError('');
-                setSettingsSuccess('');
-                setIsEditModalOpen(true);
-              }} className="settings-btn edit-profile-btn">
-                📝 Edit Profile
-              </button>
-
-              <button onClick={() => {
-                setPasswordForm({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
-                setSettingsError('');
-                setSettingsSuccess('');
-                setIsPasswordModalOpen(true);
-              }} className="settings-btn change-password-btn">
-                🔒 Change Password
-              </button>
-            </div>
-
-            <div className="settings-danger-zone">
-              <div className="danger-zone-header">
-                ⚠️ Danger Zone
-              </div>
-              <div className="danger-zone-body">
-                <div className="danger-text">
-                  <h4>Delete Account</h4>
-                  <p>Once you delete your account, all your data will be permanently removed. This action cannot be undone.</p>
-                </div>
-                <button onClick={() => {
-                  setSettingsError('');
-                  setIsDeleteModalOpen(true);
-                }} className="settings-btn delete-account-btn">
-                  Delete Account
-                </button>
-              </div>
+            <div className="no-events-placeholder">
+              <span className="placeholder-icon">📬</span>
+              <p>Your inbox is empty. No announcements published.</p>
             </div>
           </div>
         )}
@@ -1074,8 +803,21 @@ export default function Profile() {
                 <label>Full Name</label>
                 <input 
                   type="text" 
+                  name="name"
                   value={editForm.name} 
                   onChange={e => setEditForm({ ...editForm, name: e.target.value })} 
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    const nameRegex = /^[a-zA-Z\s]+$/;
+                    if (!val.trim()) {
+                      e.target.setCustomValidity("Name is required.");
+                    } else if (!nameRegex.test(val)) {
+                      e.target.setCustomValidity("Name must contain only alphabets and spaces.");
+                    } else {
+                      e.target.setCustomValidity("");
+                    }
+                    e.target.reportValidity();
+                  }}
                   required 
                 />
               </div>
@@ -1083,40 +825,105 @@ export default function Profile() {
                 <label>Mobile Number</label>
                 <input 
                   type="text" 
+                  name="mobileNumber"
                   value={editForm.mobileNumber} 
                   onChange={e => setEditForm({ ...editForm, mobileNumber: e.target.value })} 
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      const cleanMobile = val.replace(/\D/g, '');
+                      if (cleanMobile.length !== 10 || !/^\d{10}$/.test(val)) {
+                        e.target.setCustomValidity("Phone number must contain only numbers and be exactly 10 digits.");
+                      } else {
+                        e.target.setCustomValidity("");
+                      }
+                    } else {
+                      e.target.setCustomValidity("");
+                    }
+                    e.target.reportValidity();
+                  }}
                 />
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ position: 'relative' }}>
                 <label>Birth Date</label>
-                <input 
-                  type="date" 
-                  value={editForm.dob} 
-                  onChange={e => setEditForm({ ...editForm, dob: e.target.value })} 
-                />
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-outline"
+                  onClick={() => setIsDobPickerOpen(!isDobPickerOpen)}
+                  style={{ width: '100%', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '42px', padding: '0 12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: 'transparent', color: '#1f2937' }}
+                >
+                  <span>{editForm.dob ? new Date(editForm.dob).toLocaleDateString() : 'Select Date 📅'}</span>
+                </button>
+                {isDobPickerOpen && (
+                  <div style={{ position: 'absolute', top: '70px', left: 0, zIndex: 1000, background: '#fff', border: '1.5px solid #10b981', borderRadius: '8px', padding: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', color: '#000' }}>
+                    <DayPicker
+                      mode="single"
+                      selected={editForm.dob ? new Date(editForm.dob) : undefined}
+                      onSelect={(day) => {
+                        if (day) {
+                          setEditForm({ ...editForm, dob: day.toISOString().split('T')[0] });
+                        }
+                        setIsDobPickerOpen(false);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label>Country</label>
                 <input 
                   type="text" 
+                  name="country"
                   value={editForm.country} 
                   onChange={e => setEditForm({ ...editForm, country: e.target.value })} 
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    const nameRegex = /^[a-zA-Z\s]+$/;
+                    if (val && !nameRegex.test(val)) {
+                      e.target.setCustomValidity("Country must contain only alphabets and spaces.");
+                    } else {
+                      e.target.setCustomValidity("");
+                    }
+                    e.target.reportValidity();
+                  }}
                 />
               </div>
               <div className="form-group">
                 <label>State</label>
                 <input 
                   type="text" 
+                  name="state"
                   value={editForm.state} 
                   onChange={e => setEditForm({ ...editForm, state: e.target.value })} 
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    const nameRegex = /^[a-zA-Z\s]+$/;
+                    if (val && !nameRegex.test(val)) {
+                      e.target.setCustomValidity("State must contain only alphabets and spaces.");
+                    } else {
+                      e.target.setCustomValidity("");
+                    }
+                    e.target.reportValidity();
+                  }}
                 />
               </div>
               <div className="form-group">
                 <label>City</label>
                 <input 
                   type="text" 
+                  name="city"
                   value={editForm.city} 
                   onChange={e => setEditForm({ ...editForm, city: e.target.value })} 
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    const nameRegex = /^[a-zA-Z\s]+$/;
+                    if (val && !nameRegex.test(val)) {
+                      e.target.setCustomValidity("City must contain only alphabets and spaces.");
+                    } else {
+                      e.target.setCustomValidity("");
+                    }
+                    e.target.reportValidity();
+                  }}
                 />
               </div>
               <div className="modal-actions">
@@ -1145,6 +952,7 @@ export default function Profile() {
                 <label>Current Password</label>
                 <input 
                   type="password" 
+                  name="currentPassword"
                   value={passwordForm.currentPassword} 
                   onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })} 
                   required 
@@ -1154,8 +962,25 @@ export default function Profile() {
                 <label>New Password</label>
                 <input 
                   type="password" 
+                  name="newPassword"
                   value={passwordForm.newPassword} 
                   onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })} 
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+                    if (!val) {
+                      e.target.setCustomValidity("New Password is required");
+                    } else if (val.length < 8) {
+                      e.target.setCustomValidity("New password must be at least 8 characters long.");
+                    } else if (/^\d+$/.test(val)) {
+                      e.target.setCustomValidity("Password cannot consist of only numbers.");
+                    } else if (!passwordRegex.test(val)) {
+                      e.target.setCustomValidity("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).");
+                    } else {
+                      e.target.setCustomValidity("");
+                    }
+                    e.target.reportValidity();
+                  }}
                   required 
                 />
               </div>
@@ -1163,8 +988,20 @@ export default function Profile() {
                 <label>Confirm New Password</label>
                 <input 
                   type="password" 
+                  name="confirmNewPassword"
                   value={passwordForm.confirmNewPassword} 
                   onChange={e => setPasswordForm({ ...passwordForm, confirmNewPassword: e.target.value })} 
+                  onBlur={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      e.target.setCustomValidity("Confirm Password is required");
+                    } else if (val !== passwordForm.newPassword) {
+                      e.target.setCustomValidity("New passwords do not match.");
+                    } else {
+                      e.target.setCustomValidity("");
+                    }
+                    e.target.reportValidity();
+                  }}
                   required 
                 />
               </div>

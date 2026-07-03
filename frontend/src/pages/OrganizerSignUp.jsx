@@ -34,38 +34,81 @@ export default function OrganizerSignUp() {
     e.preventDefault();
     setError("");
 
-    // 1. Password constraints (advanced requirements)
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      setError("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).");
+    const form = e.target;
+
+    // Check basic HTML5 validity
+    if (!form.checkValidity()) {
+      form.reportValidity();
       return;
     }
 
-    // 2. Passwords matching
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
+    // 1. Password constraints (advanced requirements)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    const passwordInput = form.querySelector('input[name="password"]');
+    if (!passwordRegex.test(formData.password)) {
+      if (passwordInput) {
+        passwordInput.setCustomValidity("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).");
+        passwordInput.reportValidity();
+        passwordInput.focus();
+      }
       return;
+    } else if (passwordInput) {
+      passwordInput.setCustomValidity("");
+    }
+
+    // 2. Passwords matching
+    const confirmInput = form.querySelector('input[name="confirmPassword"]');
+    if (formData.password !== formData.confirmPassword) {
+      if (confirmInput) {
+        confirmInput.setCustomValidity("Passwords do not match!");
+        confirmInput.reportValidity();
+        confirmInput.focus();
+      }
+      return;
+    } else if (confirmInput) {
+      confirmInput.setCustomValidity("");
     }
 
     // 3. Name validation (alphabets only)
     const nameRegex = /^[a-zA-Z\s]+$/;
+    const nameInput = form.querySelector('input[name="organizerName"]');
     if (!nameRegex.test(formData.organizerName)) {
-      setError("Organizer Name must contain only alphabets and spaces.");
+      if (nameInput) {
+        nameInput.setCustomValidity("Organizer Name must contain only alphabets and spaces.");
+        nameInput.reportValidity();
+        nameInput.focus();
+      }
       return;
+    } else if (nameInput) {
+      nameInput.setCustomValidity("");
     }
 
     // 4. Email validation (@gmail.com or @ksrce.ac.in)
     const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|ksrce\.ac\.in)$/;
+    const emailInput = form.querySelector('input[name="email"]');
     if (!emailRegex.test(formData.email)) {
-      setError("Email address must end with @gmail.com or @ksrce.ac.in.");
+      if (emailInput) {
+        emailInput.setCustomValidity("Email address must end with @gmail.com or @ksrce.ac.in.");
+        emailInput.reportValidity();
+        emailInput.focus();
+      }
       return;
+    } else if (emailInput) {
+      emailInput.setCustomValidity("");
     }
 
     // 5. Mobile validation (10 digits)
     const mobileRegex = /^\d{10}$/;
+    const mobileInput = form.querySelector('input[name="mobile"]');
     if (!mobileRegex.test(formData.mobile)) {
-      setError("Mobile number must be exactly 10 digits.");
+      if (mobileInput) {
+        mobileInput.setCustomValidity("Mobile number must be exactly 10 digits.");
+        mobileInput.reportValidity();
+        mobileInput.focus();
+      }
       return;
+    } else if (mobileInput) {
+      mobileInput.setCustomValidity("");
     }
 
     setLoading(true);
@@ -111,6 +154,18 @@ export default function OrganizerSignUp() {
             name="organizerName"
             value={formData.organizerName}
             onChange={handleChange}
+            onBlur={(e) => {
+              const val = e.target.value;
+              const nameRegex = /^[a-zA-Z\s]+$/;
+              if (!val.trim()) {
+                e.target.setCustomValidity("Organizer Name is required.");
+              } else if (!nameRegex.test(val)) {
+                e.target.setCustomValidity("Organizer Name must contain only alphabets and spaces.");
+              } else {
+                e.target.setCustomValidity("");
+              }
+              e.target.reportValidity();
+            }}
             className="signup-input"
             placeholder="Enter organizer/organization name"
             required
@@ -125,6 +180,17 @@ export default function OrganizerSignUp() {
             name="regNo"
             value={formData.regNo}
             onChange={handleChange}
+            onBlur={(e) => {
+              const val = e.target.value;
+              if (!val.trim()) {
+                e.target.setCustomValidity("Registration number is required.");
+              } else if (!/^\d+$/.test(val)) {
+                e.target.setCustomValidity("Registration number must contain only numbers.");
+              } else {
+                e.target.setCustomValidity("");
+              }
+              e.target.reportValidity();
+            }}
             className="signup-input"
             placeholder="Enter registration/license number"
             required
@@ -139,6 +205,18 @@ export default function OrganizerSignUp() {
             name="email"
             value={formData.email}
             onChange={handleChange}
+            onBlur={(e) => {
+              const val = e.target.value;
+              const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|ksrce\.ac\.in)$/;
+              if (!val.trim()) {
+                e.target.setCustomValidity("Email is required.");
+              } else if (!emailRegex.test(val)) {
+                e.target.setCustomValidity("Email address must end with @gmail.com or @ksrce.ac.in.");
+              } else {
+                e.target.setCustomValidity("");
+              }
+              e.target.reportValidity();
+            }}
             className="signup-input"
             placeholder="Enter email address"
             required
@@ -166,6 +244,17 @@ export default function OrganizerSignUp() {
               name="mobile"
               value={formData.mobile}
               onChange={handleChange}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (!val.trim()) {
+                  e.target.setCustomValidity("Mobile number is required.");
+                } else if (!/^\d{10}$/.test(val)) {
+                  e.target.setCustomValidity("Mobile number must be exactly 10 digits.");
+                } else {
+                  e.target.setCustomValidity("");
+                }
+                e.target.reportValidity();
+              }}
               className="signup-input"
               placeholder="Enter 10-digit number"
               required
@@ -183,6 +272,18 @@ export default function OrganizerSignUp() {
             name="clubName"
             value={formData.clubName}
             onChange={handleChange}
+            onBlur={(e) => {
+              const val = e.target.value;
+              const nameRegex = /^[a-zA-Z\s]+$/;
+              if (!val.trim()) {
+                e.target.setCustomValidity("Club Name is required.");
+              } else if (!nameRegex.test(val)) {
+                e.target.setCustomValidity("Club name must contain only alphabets and spaces.");
+              } else {
+                e.target.setCustomValidity("");
+              }
+              e.target.reportValidity();
+            }}
             className="signup-input"
             placeholder="Enter club name"
             required
@@ -196,6 +297,18 @@ export default function OrganizerSignUp() {
               name="password"
               value={formData.password}
               onChange={handleChange}
+              onBlur={(e) => {
+                const val = e.target.value;
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+                if (!val) {
+                  e.target.setCustomValidity("Password is required.");
+                } else if (!passwordRegex.test(val)) {
+                  e.target.setCustomValidity("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).");
+                } else {
+                  e.target.setCustomValidity("");
+                }
+                e.target.reportValidity();
+              }}
               className="signup-input"
               placeholder="Enter password"
               required
@@ -221,6 +334,17 @@ export default function OrganizerSignUp() {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (!val) {
+                  e.target.setCustomValidity("Confirm Password is required.");
+                } else if (val !== formData.password) {
+                  e.target.setCustomValidity("Passwords do not match!");
+                } else {
+                  e.target.setCustomValidity("");
+                }
+                e.target.reportValidity();
+              }}
               className="signup-input"
               placeholder="Confirm password"
               required

@@ -13,6 +13,8 @@ const updateRegistrationStatus = async (req, res, next) => {
       throw new Error('Registration record not found');
     }
 
+    const wasPending = registration.status === 'Pending';
+
     if (status) {
       if (status === 'Present') {
         status = 'Checked-in';
@@ -31,6 +33,9 @@ const updateRegistrationStatus = async (req, res, next) => {
           registration.points = 10;
         }
       }
+      if (status === 'Registered') {
+        registration.paymentVerified = true;
+      }
     }
 
     if (points !== undefined) {
@@ -41,6 +46,27 @@ const updateRegistrationStatus = async (req, res, next) => {
     
     // Populate student data
     await updatedRegistration.populate('studentId', 'name email regNo deptYear mobileNumber');
+
+    // Trigger confirmation email if transitioned from Pending to Registered
+    if (wasPending && status === 'Registered') {
+      const { sendRegistrationEmail } = require('../utils/email');
+      const Event = require('../models/Event');
+      try {
+        const ev = await Event.findById(updatedRegistration.eventId);
+        if (ev && updatedRegistration.studentId) {
+          await sendRegistrationEmail(
+            updatedRegistration.studentId.email,
+            updatedRegistration.studentId.name,
+            ev.title,
+            ev.dateTime,
+            ev.venue,
+            updatedRegistration.sixDigitId
+          );
+        }
+      } catch (emailErr) {
+        console.error('Failed to send registration confirmation email on approval:', emailErr.message);
+      }
+    }
 
     res.status(200).json({
       success: true,
