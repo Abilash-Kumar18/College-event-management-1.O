@@ -1,0 +1,247 @@
+/* ============================================================
+   Organizer Dashboard — Leaf Green-White Brand Palette
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #faf9fe;
+  min-height: 100vh;
+}
+
+/* Outer Wrapper */
+.od-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 24px 16px;
+  background: #faf9fe;
+}
+
+/* Dashboard Card */
+.od-card {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+  border-radius: 24px;
+  box-shadow: 0 10px 40px rgba(124, 58, 237, 0.22);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+
+/* Header */
+.od-header {
+  background: transparent;
+  padding: 22px 20px 0;
+  position: relative;
+}
+
+.od-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 18px;
+  padding: 4px;
+  margin-bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  transition: opacity 0.2s;
+}
+
+.od-back-btn:hover {
+  opacity: 0.75;
+}
+
+/* Profile Row */
+.od-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.od-avatar {
+  font-size: 52px;
+  color: #fff;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.od-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.od-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.2px;
+}
+
+.od-email {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.od-role {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #22c55e;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 2px 10px;
+  letter-spacing: 0.3px;
+}
+
+/* Divider */
+.od-divider {
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.25);
+  margin: 0 -20px;
+  margin-bottom: 0;
+}
+
+/* Menu */
+.od-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 18px 8px;
+}
+
+/* Pill button */
+.od-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  height: 62px;
+  background: #fff;
+  border: none;
+  border-radius: 35px;
+  padding: 0 22px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  text-align: left;
+}
+
+.od-menu-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+}
+
+.od-menu-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.od-menu-btn--active {
+  background: #f5f3ff;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.15);
+}
+
+/* Icon */
+.od-menu-icon {
+  font-size: 20px;
+  color: #4b5563;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.od-menu-btn--active .od-menu-icon {
+  color: #22c55e;
+}
+
+/* Label */
+.od-menu-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  letter-spacing: 0.1px;
+}
+
+.od-menu-btn--active .od-menu-label {
+  color: #22c55e;
+}
+
+/* Footer / Logout */
+.od-footer {
+  padding: 16px 18px 0;
+}
+
+.od-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 52px;
+  background: #ffffff;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 35px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 750;
+  color: #4ade80;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  letter-spacing: 0.2px;
+}
+
+.od-logout-btn:hover {
+  background: #fff5f5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.od-logout-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.od-logout-icon {
+  font-size: 17px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .od-wrapper {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .od-card {
+    max-width: 100%;
+    border-radius: 0;
+    min-height: 100vh;
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .od-wrapper {
+    align-items: center;
+    padding: 40px 24px;
+  }
+
+  .od-card {
+    max-width: 440px;
+  }
+}

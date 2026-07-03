@@ -3,17 +3,56 @@ import { Link, useNavigate } from "react-router-dom";
 import { authService } from "../services/api";
 import "./StudentSignUp.css";
 
+const DEPARTMENTS = [
+  "AERONAUTICAL ENGINEERING",
+  "AGRICULTURAL ENGINEERING",
+  "ARTIFICIAL INTELLIGENCE AND DATA SCIENCE",
+  "AUTOMOBILE ENGINEERING",
+  "BIOCHEMICAL ENGINEERING",
+  "BIOMEDICAL ENGINEERING",
+  "BIOTECHNOLOGY",
+  "CERAMIC TECHNOLOGY",
+  "CHEMICAL ENGINEERING",
+  "CIVIL ENGINEERING",
+  "COMPUTER SCIENCE AND BUSINESS SYSTEMS",
+  "COMPUTER SCIENCE AND ENGINEERING",
+  "COMPUTER SCIENCE AND ENGINEERING (INTERNET OF THINGS)",
+  "ELECTRICAL AND ELECTRONICS ENGINEERING",
+  "ELECTRONICS AND COMMUNICATION ENGINEERING",
+  "ELECTRONICS AND INSTRUMENTATION ENGINEERING",
+  "ENVIRONMENTAL ENGINEERING",
+  "FOOD TECHNOLOGY",
+  "GEOINFORMATICS",
+  "INDUSTRIAL ENGINEERING",
+  "INFORMATION TECHNOLOGY",
+  "LEATHER TECHNOLOGY",
+  "MANUFACTURING ENGINEERING",
+  "MARINE ENGINEERING",
+  "MATERIAL SCIENCE AND ENGINEERING",
+  "MECHANICAL ENGINEERING",
+  "MECHATRONICS ENGINEERING",
+  "METALLURGICAL ENGINEERING",
+  "PETROCHEMICAL ENGINEERING",
+  "PETROLEUM ENGINEERING",
+  "PHARMACEUTICAL TECHNOLOGY",
+  "PRINTING TECHNOLOGY",
+  "PRODUCTION ENGINEERING",
+  "ROBOTICS AND AUTOMATION",
+  "TEXTILE TECHNOLOGY"
+];
+
 export default function StudentSignUp() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     regNo: "",
-    deptYear: "",
     email: "",
     mobile: "",
     password: "",
     confirmPassword: ""
   });
+  const [selectedDept, setSelectedDept] = useState("");
+  const [selectedYear, setSelectedYear] = useState("");
   
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -34,47 +73,95 @@ export default function StudentSignUp() {
     e.preventDefault();
     setError("");
 
-    // 1. Password constraints (advanced requirements)
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-    if (!passwordRegex.test(formData.password)) {
-      setError("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).");
+    const form = e.target;
+
+    // Check basic HTML5 validity
+    if (!form.checkValidity()) {
+      form.reportValidity();
       return;
     }
 
-    // 2. Passwords matching
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
+    // 1. Password constraints (advanced requirements)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    const passwordInput = form.querySelector('input[name="password"]');
+    if (!passwordRegex.test(formData.password)) {
+      if (passwordInput) {
+        passwordInput.setCustomValidity("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).");
+        passwordInput.reportValidity();
+        passwordInput.focus();
+      }
       return;
+    } else if (passwordInput) {
+      passwordInput.setCustomValidity("");
+    }
+
+    // 2. Passwords matching
+    const confirmInput = form.querySelector('input[name="confirmPassword"]');
+    if (formData.password !== formData.confirmPassword) {
+      if (confirmInput) {
+        confirmInput.setCustomValidity("Passwords do not match!");
+        confirmInput.reportValidity();
+        confirmInput.focus();
+      }
+      return;
+    } else if (confirmInput) {
+      confirmInput.setCustomValidity("");
     }
 
     // 3. Name validation (alphabets only)
     const nameRegex = /^[a-zA-Z\s]+$/;
+    const nameInput = form.querySelector('input[name="name"]');
     if (!nameRegex.test(formData.name)) {
-      setError("Name must contain only alphabets and spaces.");
+      if (nameInput) {
+        nameInput.setCustomValidity("Name must contain only alphabets and spaces.");
+        nameInput.reportValidity();
+        nameInput.focus();
+      }
       return;
+    } else if (nameInput) {
+      nameInput.setCustomValidity("");
     }
 
     // 4. Email validation (@gmail.com or @ksrce.ac.in)
     const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|ksrce\.ac\.in)$/;
+    const emailInput = form.querySelector('input[name="email"]');
     if (!emailRegex.test(formData.email)) {
-      setError("Email address must end with @gmail.com or @ksrce.ac.in.");
+      if (emailInput) {
+        emailInput.setCustomValidity("Email address must end with @gmail.com or @ksrce.ac.in.");
+        emailInput.reportValidity();
+        emailInput.focus();
+      }
       return;
+    } else if (emailInput) {
+      emailInput.setCustomValidity("");
     }
 
     // 5. Mobile validation (10 digits)
     const mobileRegex = /^\d{10}$/;
+    const mobileInput = form.querySelector('input[name="mobile"]');
     if (!mobileRegex.test(formData.mobile)) {
-      setError("Mobile number must be exactly 10 digits.");
+      if (mobileInput) {
+        mobileInput.setCustomValidity("Mobile number must be exactly 10 digits.");
+        mobileInput.reportValidity();
+        mobileInput.focus();
+      }
+      return;
+    } else if (mobileInput) {
+      mobileInput.setCustomValidity("");
+    }
+
+    if (!selectedDept || !selectedYear) {
+      alert("Please select both department and year.");
       return;
     }
 
     setLoading(true);
     try {
-      const { name, regNo, deptYear, email, mobile, password } = formData;
+      const { name, regNo, email, mobile, password } = formData;
       const response = await authService.registerStudent({
         name,
         regNo,
-        deptYear,
+        deptYear: `${selectedDept} - ${selectedYear}`,
         email,
         mobileNumber: `+91${mobile}`,
         password,
@@ -88,8 +175,12 @@ export default function StudentSignUp() {
         localStorage.setItem("user", JSON.stringify(response.user));
       }
 
-      alert("Student Account Created Successfully!");
-      navigate("/login");
+      // Auto-login: if token was returned, go straight to dashboard
+      if (response.token) {
+        navigate("/dashboard");
+      } else {
+        navigate("/login");
+      }
     } catch (err) {
       setError(err.message || "Registration failed. Please try again.");
     } finally {
@@ -119,6 +210,18 @@ export default function StudentSignUp() {
             name="name"
             value={formData.name}
             onChange={handleChange}
+            onBlur={(e) => {
+              const val = e.target.value;
+              const nameRegex = /^[a-zA-Z\s]+$/;
+              if (!val.trim()) {
+                e.target.setCustomValidity("Name is required.");
+              } else if (!nameRegex.test(val)) {
+                e.target.setCustomValidity("Name must contain only alphabets and spaces.");
+              } else {
+                e.target.setCustomValidity("");
+              }
+              e.target.reportValidity();
+            }}
             className="signup-input"
             placeholder="Enter your name"
             required
@@ -133,6 +236,17 @@ export default function StudentSignUp() {
             name="regNo"
             value={formData.regNo}
             onChange={handleChange}
+            onBlur={(e) => {
+              const val = e.target.value;
+              if (!val.trim()) {
+                e.target.setCustomValidity("Registration number is required.");
+              } else if (!/^\d+$/.test(val)) {
+                e.target.setCustomValidity("Registration number must contain only numbers.");
+              } else {
+                e.target.setCustomValidity("");
+              }
+              e.target.reportValidity();
+            }}
             className="signup-input"
             placeholder="Enter registration number"
             required
@@ -141,17 +255,36 @@ export default function StudentSignUp() {
             disabled={loading}
           />
 
-          <label className="signup-label">Dept/Year:</label>
-          <input
-            type="text"
-            name="deptYear"
-            value={formData.deptYear}
-            onChange={handleChange}
+          <label className="signup-label">Department *:</label>
+          <select
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
             className="signup-input"
-            placeholder="e.g. CSE / III Year"
+            style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', fontSize: '14px', color: 'var(--dash-text)', outline: 'none' }}
             required
             disabled={loading}
-          />
+          >
+            <option value="">-- Select Department --</option>
+            {DEPARTMENTS.map((dept) => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </select>
+
+          <label className="signup-label">Year of Study *:</label>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="signup-input"
+            style={{ width: '100%', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', fontSize: '14px', color: 'var(--dash-text)', outline: 'none' }}
+            required
+            disabled={loading}
+          >
+            <option value="">-- Select Year --</option>
+            <option value="I Year">I Year</option>
+            <option value="II Year">II Year</option>
+            <option value="III Year">III Year</option>
+            <option value="IV Year">IV Year</option>
+          </select>
 
           <label className="signup-label">Email id:</label>
           <input
@@ -159,6 +292,18 @@ export default function StudentSignUp() {
             name="email"
             value={formData.email}
             onChange={handleChange}
+            onBlur={(e) => {
+              const val = e.target.value;
+              const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|ksrce\.ac\.in)$/;
+              if (!val.trim()) {
+                e.target.setCustomValidity("Email is required.");
+              } else if (!emailRegex.test(val)) {
+                e.target.setCustomValidity("Email address must end with @gmail.com or @ksrce.ac.in.");
+              } else {
+                e.target.setCustomValidity("");
+              }
+              e.target.reportValidity();
+            }}
             className="signup-input"
             placeholder="Enter email address"
             required
@@ -186,6 +331,17 @@ export default function StudentSignUp() {
               name="mobile"
               value={formData.mobile}
               onChange={handleChange}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (!val.trim()) {
+                  e.target.setCustomValidity("Mobile number is required.");
+                } else if (!/^\d{10}$/.test(val)) {
+                  e.target.setCustomValidity("Mobile number must be exactly 10 digits.");
+                } else {
+                  e.target.setCustomValidity("");
+                }
+                e.target.reportValidity();
+              }}
               className="signup-input"
               placeholder="Enter 10-digit number"
               required
@@ -204,6 +360,18 @@ export default function StudentSignUp() {
               name="password"
               value={formData.password}
               onChange={handleChange}
+              onBlur={(e) => {
+                const val = e.target.value;
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+                if (!val) {
+                  e.target.setCustomValidity("Password is required.");
+                } else if (!passwordRegex.test(val)) {
+                  e.target.setCustomValidity("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).");
+                } else {
+                  e.target.setCustomValidity("");
+                }
+                e.target.reportValidity();
+              }}
               className="signup-input"
               placeholder="Enter password"
               required
@@ -229,6 +397,17 @@ export default function StudentSignUp() {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (!val) {
+                  e.target.setCustomValidity("Confirm Password is required.");
+                } else if (val !== formData.password) {
+                  e.target.setCustomValidity("Passwords do not match!");
+                } else {
+                  e.target.setCustomValidity("");
+                }
+                e.target.reportValidity();
+              }}
               className="signup-input"
               placeholder="Confirm password"
               required

@@ -131,7 +131,7 @@ export default function Verification() {
           <div className="resend-container">
             <span className="resend-text">Didn't receive the code? </span>
             {timerSeconds > 0 ? (
-              <span className="resend-timer-text" style={{ color: "#EEFF6E", fontWeight: "600", marginLeft: "4px" }}>
+              <span className="resend-timer-text" style={{ color: "#15803d", fontWeight: "600", marginLeft: "4px" }}>
                 Resend OTP in {timerSeconds}s
               </span>
             ) : (

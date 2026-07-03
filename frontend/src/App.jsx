@@ -8,12 +8,16 @@ import ForgotPassword from './pages/ForgotPassword';
 import Verification from './pages/Verification';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
+import EventRegister from './pages/EventRegister';
+
+import Home from './pages/Home';
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUpRole />} />
         <Route path="/signup/student" element={<StudentSignUp />} />
@@ -22,6 +26,8 @@ function App() {
         <Route path="/verify" element={<Verification />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/register" element={<EventRegister />} />
       </Routes>
     </Router>
   );

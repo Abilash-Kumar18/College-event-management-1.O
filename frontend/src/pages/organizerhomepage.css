@@ -1,0 +1,343 @@
+/* ============================================================
+   Organizer Home Page — Leaf Green-White Brand Palette
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #faf9fe;
+  min-height: 100vh;
+}
+
+/* Wrapper */
+.ohp-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 24px 16px 40px;
+  background: #faf9fe;
+}
+
+/* Main Card */
+.ohp-card {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+  border-radius: 24px;
+  box-shadow: 0 10px 40px rgba(124, 58, 237, 0.22);
+  padding: 22px 18px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Top Bar */
+.ohp-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ohp-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.ohp-back-btn:hover {
+  opacity: 0.7;
+}
+
+.ohp-page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+/* Divider */
+.ohp-divider {
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.25);
+  margin: 0 0 18px;
+}
+
+/* Greeting */
+.ohp-greeting {
+  margin-bottom: 20px;
+}
+
+.ohp-greeting-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.ohp-greeting-sub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Section */
+.ohp-section {
+  margin-bottom: 20px;
+}
+
+.ohp-section--last {
+  margin-bottom: 0;
+}
+
+.ohp-section-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+}
+
+/* Highlight Card */
+.ohp-highlight-card {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+.ohp-highlight-badge {
+  display: inline-block;
+  background: #ffffff;
+  color: #22c55e;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 3px 12px;
+  margin-bottom: 8px;
+  letter-spacing: 0.4px;
+}
+
+.ohp-highlight-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.ohp-highlight-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.ohp-highlight-meta span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ohp-meta-icon {
+  font-size: 12px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.ohp-view-btn {
+  background: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #22c55e;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ohp-view-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+/* Quick Stats */
+.ohp-stats-container {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.ohp-stat-card {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  min-width: 0;
+}
+
+.ohp-stat-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.ohp-stat-count-box {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  padding: 6px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.ohp-stat-count {
+  font-size: 20px;
+  font-weight: 800;
+  color: #22c55e;
+}
+
+/* Quick Actions */
+.ohp-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ohp-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  height: 58px;
+  background: #fff;
+  border: none;
+  border-radius: 30px;
+  padding: 0 22px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: left;
+}
+
+.ohp-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+}
+
+.ohp-action-btn:active {
+  transform: translateY(0);
+}
+
+.ohp-action-icon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: #22c55e;
+}
+
+.ohp-action-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+/* Recent Activity */
+.ohp-activity-card {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.ohp-activity-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ohp-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: #fff;
+  line-height: 1.45;
+}
+
+.ohp-activity-dot {
+  font-size: 7px;
+  color: #fff;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .ohp-wrapper {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .ohp-card {
+    max-width: 100%;
+    border-radius: 0;
+    min-height: 100vh;
+    box-shadow: none;
+  }
+
+  .ohp-stat-label {
+    font-size: 10.5px;
+  }
+
+  .ohp-stat-count {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 768px) {
+  .ohp-wrapper {
+    align-items: center;
+    padding: 40px 24px;
+  }
+
+  .ohp-card {
+    max-width: 460px;
+  }
+}

@@ -1,0 +1,346 @@
+/* ============================================================
+   Organizer Event List — Leaf Green-White Brand Palette
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #faf9fe;
+  min-height: 100vh;
+}
+
+/* Wrapper */
+.oep-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 24px 16px 40px;
+  background: #faf9fe;
+}
+
+/* Main Card */
+.oep-card {
+  width: 100%;
+  max-width: 440px;
+  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+  border-radius: 24px;
+  box-shadow: 0 10px 40px rgba(124, 58, 237, 0.22);
+  padding: 22px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+/* Header */
+.oep-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.oep-back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.oep-back-btn:hover {
+  opacity: 0.7;
+}
+
+.oep-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+
+/* Divider */
+.oep-divider {
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.25);
+  margin-bottom: 18px;
+}
+
+/* Tabs */
+.oep-tabs {
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 30px;
+  padding: 5px 6px;
+  margin-bottom: 20px;
+}
+
+.oep-tab {
+  flex: 1;
+  position: relative;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 9px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 24px;
+  transition: background 0.2s, color 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.oep-tab:hover {
+  color: #fff;
+}
+
+.oep-tab--active {
+  background: #ffffff;
+  color: #22c55e;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.oep-tab-bar {
+  display: block;
+  width: 24px;
+  height: 3px;
+  background: #22c55e;
+  border-radius: 2px;
+}
+
+/* Events List */
+.oep-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.oep-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
+  padding: 30px 0;
+  font-style: italic;
+}
+
+/* Event Card */
+.oep-event-card {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 18px;
+  padding: 16px 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.oep-event-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Status Badge */
+.oep-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 3px 12px;
+  margin-bottom: 8px;
+  letter-spacing: 0.4px;
+  align-self: flex-start;
+}
+
+.oep-badge--open {
+  background: #ffffff;
+  color: #22c55e;
+  border: 1px solid #ffffff;
+}
+
+.oep-badge--closed {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Event Title */
+.oep-event-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+
+/* Meta Info */
+.oep-event-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.oep-event-meta span {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.oep-meta-icon {
+  font-size: 12px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* Card Divider */
+.oep-card-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin-bottom: 12px;
+}
+
+/* Action Buttons */
+.oep-card-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.oep-link-btn {
+  flex: 1;
+  background: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-align: center;
+}
+
+.oep-link-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.oep-link-btn:active {
+  transform: translateY(0);
+}
+
+.oep-link-btn--details {
+  color: #22c55e;
+}
+
+.oep-link-btn--edit {
+  color: #4ade80;
+}
+
+.oep-link-btn--view {
+  color: #3b82f6;
+}
+
+.oep-link-btn--report {
+  color: #f59e0b;
+}
+
+/* Footer / Create Button */
+.oep-footer {
+  position: sticky;
+  bottom: 0;
+  padding-top: 4px;
+}
+
+.oep-create-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 54px;
+  background: #ffffff;
+  border: none;
+  border-radius: 30px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #22c55e;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.2px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.oep-create-btn:hover {
+  background: #f5f3ff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.oep-create-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.oep-create-icon {
+  font-size: 18px;
+  color: #22c55e;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .oep-wrapper {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .oep-card {
+    max-width: 100%;
+    border-radius: 0;
+    min-height: 100vh;
+    box-shadow: none;
+  }
+
+  .oep-footer {
+    position: sticky;
+    bottom: 0;
+    background: #22c55e;
+    padding: 12px 0 4px;
+    margin: 0 -18px -24px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}
+
+@media (min-width: 768px) {
+  .oep-wrapper {
+    align-items: center;
+    padding: 40px 24px;
+  }
+
+  .oep-card {
+    max-width: 460px;
+  }
+}

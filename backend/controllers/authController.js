@@ -525,11 +525,121 @@ const getUserProfile = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        points: user.points || 0,
+        heartsCount: user.heartsCount || 0,
+        savesCount: user.savesCount || 0,
+        sharesCount: user.sharesCount || 0,
+        eventViewsCount: user.eventViewsCount || 0,
+        registrationsCount: user.registrationsCount || 0,
+        mobileNumber: user.mobileNumber || '',
+        dob: user.dob || null,
+        country: user.country || '',
+        state: user.state || '',
+        city: user.city || '',
       });
     } else {
       res.status(404);
       throw new Error('User not found');
     }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update user profile stats (interactions)
+// @route   PUT /api/auth/profile/stats
+// @access  Private
+const updateProfileStats = async (req, res, next) => {
+  const { type, action } = req.body;
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    let pointsDiff = 0;
+    if (type === 'hearts') {
+      if (action === 'decrement') {
+        if (user.heartsCount > 0) {
+          user.heartsCount -= 1;
+          pointsDiff = -1;
+        }
+      } else {
+        user.heartsCount += 1;
+        pointsDiff = 1;
+      }
+    } else if (type === 'saves') {
+      if (action === 'decrement') {
+        if (user.savesCount > 0) {
+          user.savesCount -= 1;
+          pointsDiff = -1;
+        }
+      } else {
+        user.savesCount += 1;
+        pointsDiff = 1;
+      }
+    } else if (type === 'shares') {
+      user.sharesCount += 1;
+      pointsDiff = 2;
+    } else if (type === 'eventViews') {
+      user.eventViewsCount += 1;
+      pointsDiff = 1;
+    } else if (type === 'registrations') {
+      if (action === 'decrement') {
+        if (user.registrationsCount > 0) {
+          user.registrationsCount -= 1;
+          pointsDiff = -10;
+        }
+      } else {
+        user.registrationsCount += 1;
+        pointsDiff = 10;
+      }
+    }
+
+    user.points = Math.max(0, (user.points || 0) + pointsDiff);
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      points: user.points,
+      heartsCount: user.heartsCount,
+      savesCount: user.savesCount,
+      sharesCount: user.sharesCount,
+      eventViewsCount: user.eventViewsCount,
+      registrationsCount: user.registrationsCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get leaderboard (top users by points)
+// @route   GET /api/auth/leaderboard
+// @access  Private
+const getLeaderboard = async (req, res, next) => {
+  try {
+    const users = await User.find({ role: 'student' })
+      .sort({ points: -1 })
+      .select('name points role');
+
+    const leaderboard = users.map((u, index) => ({
+      _id: u._id,
+      name: u.name,
+      points: u.points || 0,
+      rank: index + 1
+    }));
+
+    const userRankInfo = leaderboard.find(u => u._id.toString() === req.user._id.toString());
+    const userRank = userRankInfo ? userRankInfo.rank : leaderboard.length + 1;
+
+    res.json({
+      leaderboard: leaderboard.slice(0, 10),
+      userRank
+    });
   } catch (error) {
     next(error);
   }
@@ -622,6 +732,101 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
+// @desc    Update user profile details
+// @route   PUT /api/auth/profile
+// @access  Private
+const updateUserProfile = async (req, res, next) => {
+  const { name, mobileNumber, dob, country, state, city } = req.body;
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      user.name = name || user.name;
+      user.mobileNumber = mobileNumber !== undefined ? mobileNumber : user.mobileNumber;
+      user.dob = dob !== undefined ? dob : user.dob;
+      user.country = country !== undefined ? country : user.country;
+      user.state = state !== undefined ? state : user.state;
+      user.city = city !== undefined ? city : user.city;
+
+      const updatedUser = await user.save();
+
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        mobileNumber: updatedUser.mobileNumber || '',
+        dob: updatedUser.dob || null,
+        country: updatedUser.country || '',
+        state: updatedUser.state || '',
+        city: updatedUser.city || '',
+        points: updatedUser.points || 0,
+        heartsCount: updatedUser.heartsCount || 0,
+        savesCount: updatedUser.savesCount || 0,
+        sharesCount: updatedUser.sharesCount || 0,
+        eventViewsCount: updatedUser.eventViewsCount || 0,
+        registrationsCount: updatedUser.registrationsCount || 0,
+      });
+    } else {
+      res.status(404);
+      throw new Error('User not found');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Change user password
+// @route   PUT /api/auth/profile/password
+// @access  Private
+const changeUserPassword = async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        res.status(400);
+        throw new Error('Incorrect current password');
+      }
+
+      user.password = newPassword;
+      await user.save();
+
+      res.json({ success: true, message: 'Password changed successfully' });
+    } else {
+      res.status(404);
+      throw new Error('User not found');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Delete user account
+// @route   DELETE /api/auth/profile
+// @access  Private
+const deleteUserAccount = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      const Registration = require('../models/Registration');
+      await Registration.deleteMany({ user: user._id });
+
+      await User.deleteOne({ _id: user._id });
+
+      res.json({ success: true, message: 'Account deleted successfully' });
+    } else {
+      res.status(404);
+      throw new Error('User not found');
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   registerStudent,
   registerOrganizer,
@@ -630,6 +835,11 @@ module.exports = {
   verifyOtp,
   resetPassword,
   getUserProfile,
+  updateProfileStats,
+  getLeaderboard,
+  updateUserProfile,
+  changeUserPassword,
+  deleteUserAccount,
   googleLogin,
 };
 

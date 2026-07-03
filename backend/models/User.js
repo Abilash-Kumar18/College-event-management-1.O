@@ -61,6 +61,45 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpires: {
       type: Date,
     },
+    points: {
+      type: Number,
+      default: 0,
+    },
+    heartsCount: {
+      type: Number,
+      default: 0,
+    },
+    savesCount: {
+      type: Number,
+      default: 0,
+    },
+    sharesCount: {
+      type: Number,
+      default: 0,
+    },
+    eventViewsCount: {
+      type: Number,
+      default: 0,
+    },
+    registrationsCount: {
+      type: Number,
+      default: 0,
+    },
+    dob: {
+      type: Date,
+    },
+    country: {
+      type: String,
+      default: '',
+    },
+    state: {
+      type: String,
+      default: '',
+    },
+    city: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,

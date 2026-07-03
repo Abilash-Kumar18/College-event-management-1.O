@@ -1,0 +1,83 @@
+const Registration = require('../models/Registration');
+
+// @desc    Update registration status (Manual Override)
+// @route   PUT /api/registrations/:id
+// @access  Private/Organizer/Faculty/Admin
+const updateRegistrationStatus = async (req, res, next) => {
+  let { status, points } = req.body;
+
+  try {
+    const registration = await Registration.findById(req.id || req.params.id);
+    if (!registration) {
+      res.status(404);
+      throw new Error('Registration record not found');
+    }
+
+    const wasPending = registration.status === 'Pending';
+
+    if (status) {
+      if (status === 'Present') {
+        status = 'Checked-in';
+      }
+
+      if (!['Registered', 'Checked-in', 'Pending', 'Cancelled', 'Absent'].includes(status)) {
+        res.status(400);
+        throw new Error('Invalid registration status');
+      }
+
+      registration.status = status;
+      if (status === 'Checked-in') {
+        registration.scanTime = registration.scanTime || new Date();
+        // Default points to 10 on check-in if points not specified and current points is 0
+        if (points === undefined && registration.points === 0) {
+          registration.points = 10;
+        }
+      }
+      if (status === 'Registered') {
+        registration.paymentVerified = true;
+      }
+    }
+
+    if (points !== undefined) {
+      registration.points = Number(points);
+    }
+
+    const updatedRegistration = await registration.save();
+    
+    // Populate student data
+    await updatedRegistration.populate('studentId', 'name email regNo deptYear mobileNumber');
+
+    // Trigger confirmation email if transitioned from Pending to Registered
+    if (wasPending && status === 'Registered') {
+      const { sendRegistrationEmail } = require('../utils/email');
+      const Event = require('../models/Event');
+      try {
+        const ev = await Event.findById(updatedRegistration.eventId);
+        if (ev && updatedRegistration.studentId) {
+          await sendRegistrationEmail(
+            updatedRegistration.studentId.email,
+            updatedRegistration.studentId.name,
+            ev.title,
+            ev.dateTime,
+            ev.venue,
+            updatedRegistration.sixDigitId
+          );
+        }
+      } catch (emailErr) {
+        console.error('Failed to send registration confirmation email on approval:', emailErr.message);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Registration status successfully updated to ${registration.status}`,
+      registration: updatedRegistration,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  updateRegistrationStatus,
+};

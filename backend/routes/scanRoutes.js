@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { checkInAttendee } = require('../controllers/scanController');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
-router.post('/', protect, admin, checkInAttendee);
+// POST /api/scan  — organizers and admins can scan QR codes
+router.post('/', protect, authorizeRoles('organizer', 'admin'), checkInAttendee);
 
 module.exports = router;
