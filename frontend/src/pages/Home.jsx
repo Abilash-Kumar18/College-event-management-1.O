@@ -41,8 +41,8 @@ export default function Home() {
   const [isFullPosterOpen, setIsFullPosterOpen] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
+    const userData = sessionStorage.getItem('user');
     if (token && userData) {
       setIsLoggedIn(true);
       try {
@@ -85,8 +85,8 @@ export default function Home() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setIsLoggedIn(false);
     setUser(null);
     navigate('/');

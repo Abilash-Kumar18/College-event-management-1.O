@@ -23,8 +23,8 @@ export default function Login() {
       });
 
       // Store token and user data
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res.user));
+      sessionStorage.setItem("token", res.token);
+      sessionStorage.setItem("user", JSON.stringify(res.user));
 
       // Navigate to dashboard
       navigate("/dashboard");
@@ -167,8 +167,8 @@ export default function Login() {
       }
 
       // Store token and user data
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("user", JSON.stringify(response.user));
+      sessionStorage.setItem("token", response.token);
+      sessionStorage.setItem("user", JSON.stringify(response.user));
 
       // Navigate to dashboard
       navigate("/dashboard");

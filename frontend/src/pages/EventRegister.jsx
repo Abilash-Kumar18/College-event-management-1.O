@@ -127,8 +127,8 @@ export default function EventRegister() {
 
   useEffect(() => {
     // Load user
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
+    const storedUser = sessionStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
     if (!token || !storedUser) {
       navigate('/login');
       return;
@@ -371,7 +371,7 @@ export default function EventRegister() {
       stats.points += 10;
       localStorage.setItem(localStatsKey, JSON.stringify(stats));
 
-      const storedUser = localStorage.getItem('user');
+      const storedUser = sessionStorage.getItem('user');
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
@@ -381,7 +381,7 @@ export default function EventRegister() {
           parsed.sharesCount = stats.sharesCount;
           parsed.eventViewsCount = stats.eventViewsCount;
           parsed.registrationsCount = stats.registrationsCount;
-          localStorage.setItem('user', JSON.stringify(parsed));
+          sessionStorage.setItem('user', JSON.stringify(parsed));
         } catch (err) {
           console.error(err);
         }

@@ -13,7 +13,7 @@ if (API_URL && !API_URL.endsWith('/api') && !API_URL.endsWith('/api/')) {
 // Header builder — attaches JWT from localStorage on every request
 // ──────────────────────────────────────────────────────────────────────────────
 const getHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
