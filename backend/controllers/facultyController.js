@@ -116,7 +116,17 @@ const getEventRegistrations = async (req, res, next) => {
       .populate('studentId', 'name email regNo deptYear mobileNumber')
       .sort({ createdAt: -1 });
 
-    res.status(200).json(registrations);
+    const sanitized = registrations.map(r => {
+      const obj = typeof r.toObject === 'function' ? r.toObject() : { ...r };
+      if (req.user.role !== 'admin' && obj.studentId) {
+        if (obj.studentId.mobileNumber) {
+          obj.studentId.mobileNumber = '********' + obj.studentId.mobileNumber.slice(-2);
+        }
+      }
+      return obj;
+    });
+
+    res.status(200).json(sanitized);
   } catch (error) {
     next(error);
   }
@@ -175,6 +185,10 @@ const scanStudentQRPass = async (req, res, next) => {
       registration.points = 10;
     }
     await registration.save();
+
+    // Store attendance separately in the attendance collection
+    const { recordAttendance } = require('../utils/attendanceHelper');
+    await recordAttendance(registration.eventId._id || registration.eventId, registration.studentId._id || registration.studentId, true, req.user._id);
 
     res.status(200).json({
       success: true,
@@ -346,7 +360,7 @@ const deleteUser = async (req, res, next) => {
     if (userToDelete.role === 'student') {
       await Registration.deleteMany({ studentId: id });
     }
-    if (userToDelete.role === 'organizer') {
+    if (userToDelete.role === 'faculty') {
       await Event.deleteMany({ createdBy: id });
     }
 
@@ -377,6 +391,30 @@ const deleteEvent = async (req, res, next) => {
       throw new Error('Event not found');
     }
 
+    // Verify authorized faculty/admin
+    if (req.user.role !== 'admin' && String(eventToDelete.createdBy) !== String(req.user._id)) {
+      res.status(403);
+      throw new Error('You are not authorized to delete this event');
+    }
+
+    if (eventToDelete.status === 'Deleted') {
+      // If already soft-deleted, perform a permanent deletion
+      await Event.findByIdAndDelete(id);
+      
+      // Clean up associated registrations and attendance records
+      const Registration = require('../models/Registration');
+      const Attendance = require('../models/Attendance');
+      await Registration.deleteMany({ eventId: id });
+      await Attendance.deleteMany({ eventId: id });
+
+      res.status(200).json({
+        success: true,
+        message: 'Event permanently deleted from the database',
+        permanent: true,
+      });
+      return;
+    }
+
     eventToDelete.status = 'Deleted';
     eventToDelete.deletedBy = req.user._id;
     await eventToDelete.save();
@@ -403,10 +441,19 @@ const deleteRegistration = async (req, res, next) => {
       throw new Error('Invalid registration ID format');
     }
 
-    const reg = await Registration.findById(id);
+    const reg = await Registration.findById(id).populate('eventId');
     if (!reg) {
       res.status(404);
       throw new Error('Registration not found');
+    }
+
+    // Verify authorized faculty/admin
+    if (req.user.role !== 'admin') {
+      const event = reg.eventId;
+      if (!event || String(event.createdBy) !== String(req.user._id)) {
+        res.status(403);
+        throw new Error('You are not authorized to delete this registration');
+      }
     }
 
     await Registration.findByIdAndDelete(id);
@@ -474,11 +521,38 @@ const updateEventCoordinationStatus = async (req, res, next) => {
   }
 };
 
+// @desc    Get all registrations
+// @route   GET /api/faculty/registrations
+// @access  Private/Faculty/Admin
+const getAllRegistrations = async (req, res, next) => {
+  try {
+    const registrations = await Registration.find()
+      .populate('studentId', 'name email regNo deptYear mobileNumber')
+      .populate('eventId', 'title dateTime fromDate toDate priceType entryFee')
+      .sort({ createdAt: -1 });
+
+    const sanitized = registrations.map(r => {
+      const obj = typeof r.toObject === 'function' ? r.toObject() : { ...r };
+      if (req.user.role !== 'admin' && obj.studentId) {
+        if (obj.studentId.mobileNumber) {
+          obj.studentId.mobileNumber = '********' + obj.studentId.mobileNumber.slice(-2);
+        }
+      }
+      return obj;
+    });
+
+    res.status(200).json(sanitized);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getFacultyDashboard,
   getPendingEvents,
   updateEventStatus,
   getEventRegistrations,
+  getAllRegistrations,
   scanStudentQRPass,
   createAnnouncement,
   getFacultyReports,

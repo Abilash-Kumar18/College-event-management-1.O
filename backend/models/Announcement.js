@@ -14,7 +14,7 @@ const announcementSchema = new mongoose.Schema(
     },
     audience: {
       type: String,
-      enum: ['student', 'organizer', 'faculty', 'all'],
+      enum: ['student', 'faculty', 'admin', 'all'],
       default: 'all',
       required: true,
     },

@@ -4,7 +4,7 @@ const userSchema = new mongoose.Schema(
   {
     role: {
       type: String,
-      enum: ['student', 'organizer', 'faculty', 'admin'],
+      enum: ['student', 'faculty', 'admin', 'organizer'],
       required: true,
     },
     email: {
@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
     regNo: {
       type: String,
       required: function() {
-        return this.role === 'student' || this.role === 'organizer';
+        return this.role === 'student';
       },
       trim: true,
     },
@@ -43,17 +43,11 @@ const userSchema = new mongoose.Schema(
     },
     clubName: {
       type: String,
-      required: function() {
-        return this.role === 'organizer';
-      },
       trim: true,
     },
     isApproved: {
       type: Boolean,
-      default: function() {
-        if (this.role === 'organizer') return false;
-        return true;
-      },
+      default: true,
     },
     resetPasswordOtp: {
       type: String,

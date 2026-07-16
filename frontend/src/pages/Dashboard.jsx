@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
-import { eventService, scanService, authService, studentService, facultyService, announcementService, registrationService } from '../services/api';
+import { eventService, scanService, authService, studentService, facultyService, announcementService, registrationService, adminService } from '../services/api';
 import './Dashboard.css';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
@@ -55,7 +55,7 @@ import defaultEventImg from '../assets/images/default_event.jpg';
 const getEventImage = (event) => {
   if (event.imageUrl) return event.imageUrl;
   if (event.posterUrl) return event.posterUrl;
-  
+
   const titleLower = (event.title || '').toLowerCase();
   if (titleLower.includes('hack') || titleLower.includes('code') || titleLower.includes('tech') || titleLower.includes('program')) {
     return hackathonImg;
@@ -69,7 +69,7 @@ const getEventImage = (event) => {
   if (titleLower.includes('workshop') || titleLower.includes('react') || titleLower.includes('web') || titleLower.includes('learn') || titleLower.includes('craft')) {
     return reactWorkshopImg;
   }
-  
+
   return defaultEventImg;
 };
 
@@ -108,6 +108,7 @@ export default function Dashboard() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [browseFilter, setBrowseFilter] = useState('all'); // 'all' | 'upcoming' | 'closed'
+  const [organizerRegEventId, setOrganizerRegEventId] = useState('');
 
   // Data States
   const [events, setEvents] = useState([]);
@@ -121,6 +122,7 @@ export default function Dashboard() {
   const [organizers, setOrganizers] = useState([]);
   const [selectedOrganizer, setSelectedOrganizer] = useState(null);
   const [isOrganizerModalOpen, setIsOrganizerModalOpen] = useState(false);
+  const [facultyForm, setFacultyForm] = useState({ name: '', email: '', password: '' });
 
   // Loading and Error States
   const [loading, setLoading] = useState(true);
@@ -159,6 +161,7 @@ export default function Dashboard() {
   const [isCreateAnnouncementModalOpen, setIsCreateAnnouncementModalOpen] = useState(false);
   const [isResultEntryModalOpen, setIsResultEntryModalOpen] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState(null);
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState(null);
 
   // Form Input States
   const [eventForm, setEventForm] = useState({
@@ -248,7 +251,7 @@ export default function Dashboard() {
   }, [registrations, user?._id]);
 
   const attendedRegistrations = useMemo(() => {
-    return studentRegistrations.filter(r => r.checkedIn);
+    return studentRegistrations.filter(r => r.checkedIn && r.certificateApproved);
   }, [studentRegistrations]);
 
   const approvedRegistrations = useMemo(() => {
@@ -355,11 +358,11 @@ export default function Dashboard() {
 
       // Front-end date validation
       const today = new Date();
-      today.setHours(0,0,0,0);
+      today.setHours(0, 0, 0, 0);
       const start = new Date(targetEvent.fromDate || targetEvent.dateTime);
-      start.setHours(0,0,0,0);
+      start.setHours(0, 0, 0, 0);
       const end = new Date(targetEvent.toDate || targetEvent.dateTime || targetEvent.fromDate);
-      end.setHours(23,59,59,999);
+      end.setHours(23, 59, 59, 999);
       if (today < start || today > end) {
         setScanStatus('Attendance check-in is only allowed on the scheduled event day(s).');
         return;
@@ -581,13 +584,13 @@ export default function Dashboard() {
             });
           }
         });
-        
+
         const storedClubs = localStorage.getItem('dash_clubs');
         let localClubs = [];
         if (storedClubs) {
-          try { localClubs = JSON.parse(storedClubs); } catch(e) {}
+          try { localClubs = JSON.parse(storedClubs); } catch (e) { }
         }
-        
+
         const combinedClubs = [...dbClubs];
         localClubs.forEach(lc => {
           if (!seenClubs.has(lc.name.toLowerCase())) {
@@ -625,7 +628,7 @@ export default function Dashboard() {
             localStorage.setItem(`dash_registered_${user._id}`, JSON.stringify(regIds));
           } else if (user.role === 'organizer') {
             const organizerEvents = apiEvents.filter(e => String(e.createdBy?._id || e.createdBy) === String(user._id));
-             for (const evt of organizerEvents) {
+            for (const evt of organizerEvents) {
               try {
                 const res = await eventService.getRegistrations(evt._id);
                 const mapped = res.map(r => ({
@@ -633,15 +636,22 @@ export default function Dashboard() {
                   eventId: evt._id,
                   eventTitle: evt.title,
                   studentId: r.studentId?._id || r.studentId,
+                  studentObj: r.studentId,
                   studentName: r.studentId?.name || 'Student',
                   studentReg: r.studentId?.regNo || 'N/A',
                   studentEmail: r.studentId?.email || '',
+                  studentDept: r.studentId?.deptYear || 'N/A',
+                  studentMobile: r.studentId?.mobileNumber || 'N/A',
+                  collegeName: r.collegeName || 'K.S.R. College Of Engineering',
+                  teamDetails: r.teamDetails || 'N/A',
+                  ticketId: r.sixDigitId || 'N/A',
                   date: r.createdAt,
                   status: r.status,
                   checkedIn: r.status === 'Checked-in',
                   checkInTime: r.scanTime,
                   paymentScreenshot: r.paymentScreenshot,
-                  paymentVerified: r.paymentVerified
+                  paymentVerified: r.paymentVerified,
+                  certificateApproved: r.certificateApproved || false
                 }));
                 fetchedRegs = [...fetchedRegs, ...mapped];
               } catch (err) {
@@ -649,33 +659,37 @@ export default function Dashboard() {
               }
             }
           } else if (user.role === 'faculty' || user.role === 'admin') {
-            for (const evt of apiEvents) {
-              try {
-                const res = await facultyService.getRegistrations(evt._id);
-                const mapped = res.map(r => ({
-                  id: r._id,
-                  eventId: evt._id,
-                  eventTitle: evt.title,
-                  studentId: r.studentId?._id || r.studentId,
-                  studentName: r.studentId?.name || 'Student',
-                  studentReg: r.studentId?.regNo || 'N/A',
-                  studentEmail: r.studentId?.email || '',
-                  date: r.createdAt,
-                  status: r.status,
-                  checkedIn: r.status === 'Checked-in',
-                  checkInTime: r.scanTime,
-                  paymentScreenshot: r.paymentScreenshot,
-                  paymentVerified: r.paymentVerified
-                }));
-                fetchedRegs = [...fetchedRegs, ...mapped];
-              } catch (err) {
-                console.warn(`Failed to fetch faculty registrations for event ${evt._id}`, err);
-              }
+            try {
+              const res = await facultyService.getAllRegistrations();
+              fetchedRegs = res.map(r => ({
+                id: r._id,
+                eventId: r.eventId?._id || r.eventId,
+                eventTitle: r.eventId?.title || 'Unknown Event',
+                studentId: r.studentId?._id || r.studentId,
+                studentObj: r.studentId,
+                studentName: r.studentId?.name || 'Student',
+                studentReg: r.studentId?.regNo || 'N/A',
+                studentEmail: r.studentId?.email || '',
+                studentDept: r.studentId?.deptYear || 'N/A',
+                studentMobile: r.studentId?.mobileNumber || 'N/A',
+                collegeName: r.collegeName || 'K.S.R. College Of Engineering',
+                teamDetails: r.teamDetails || 'N/A',
+                ticketId: r.sixDigitId || 'N/A',
+                date: r.createdAt,
+                status: r.status,
+                checkedIn: r.status === 'Checked-in',
+                checkInTime: r.scanTime,
+                paymentScreenshot: r.paymentScreenshot,
+                paymentVerified: r.paymentVerified,
+                certificateApproved: r.certificateApproved || false
+              }));
+            } catch (err) {
+              console.warn(`Failed to fetch all registrations:`, err);
             }
           }
           setRegistrations(fetchedRegs);
           localStorage.setItem('dash_global_registrations', JSON.stringify(fetchedRegs));
-          
+
           if (user.role === 'faculty' || user.role === 'admin') {
             try {
               const apiOrgs = await facultyService.getOrganizers();
@@ -729,15 +743,15 @@ export default function Dashboard() {
 
   // Lock scroll when any modal is open
   useEffect(() => {
-    const isAnyModalOpen = 
-      isEventDetailModalOpen || 
-      !!selectedApprovalEvent || 
-      isAddStaffModalOpen || 
-      isAddClubModalOpen || 
-      isCreateAnnouncementModalOpen || 
-      isResultEntryModalOpen || 
-      isOrganizerModalOpen || 
-      confirmDialog.isOpen || 
+    const isAnyModalOpen =
+      isEventDetailModalOpen ||
+      !!selectedApprovalEvent ||
+      isAddStaffModalOpen ||
+      isAddClubModalOpen ||
+      isCreateAnnouncementModalOpen ||
+      isResultEntryModalOpen ||
+      isOrganizerModalOpen ||
+      confirmDialog.isOpen ||
       !!selectedOrganizer;
 
     if (isAnyModalOpen) {
@@ -808,10 +822,10 @@ export default function Dashboard() {
   // Faculty Actions: Delete/Remove Student, Organizer, Event, or Registration
   const handleDeleteUser = (userId, roleToDelete) => {
     const roleLabel = roleToDelete === 'student' ? 'Student' : 'Organizer';
-    const confirmMessage = roleToDelete === 'organizer' 
+    const confirmMessage = roleToDelete === 'organizer'
       ? "Are you sure you want to permanently delete this organizer account? All events created by this organizer will also be removed. This action cannot be undone."
       : "Are you sure you want to permanently delete this student account and remove all their access? This action cannot be undone.";
-    
+
     requestConfirm(`Confirm Revoke Access`, confirmMessage, async () => {
       setLoading(true);
       try {
@@ -835,6 +849,21 @@ export default function Dashboard() {
         setActionSuccess("Event deleted successfully.");
       } catch (err) {
         setError(err.message || "Failed to delete event.");
+      } finally {
+        setLoading(false);
+      }
+    });
+  };
+
+  const handlePermanentDeleteEvent = (eventId) => {
+    requestConfirm("Confirm Permanent Delete Event", "Are you sure you want to permanently delete this event and all student registrations associated with it? This will completely remove it from the database. This action cannot be undone.", async () => {
+      setLoading(true);
+      try {
+        await facultyService.deleteEvent(eventId);
+        setRefreshTrigger(prev => prev + 1);
+        setActionSuccess("Event permanently deleted.");
+      } catch (err) {
+        setError(err.message || "Failed to permanently delete event.");
       } finally {
         setLoading(false);
       }
@@ -956,6 +985,12 @@ export default function Dashboard() {
           feeInput.focus();
           return;
         }
+        if (eventForm.entryFee >= 1500) {
+          feeInput.setCustomValidity('Amount per person must be less than 1500.');
+          feeInput.reportValidity();
+          feeInput.focus();
+          return;
+        }
         feeInput.setCustomValidity('');
       }
     }
@@ -972,7 +1007,7 @@ export default function Dashboard() {
     for (let i = 0; i < studentCoordinators.length; i++) {
       const c = studentCoordinators[i];
       const isAnyFieldFilled = c.name.trim() || c.regNo.trim() || c.dept.trim() || c.phone.trim();
-      
+
       if (studentCoordinators.length > 1 || isAnyFieldFilled) {
         if (!c.name.trim()) {
           if (coordinatorInputs[i]) {
@@ -1207,6 +1242,72 @@ export default function Dashboard() {
     }
   };
 
+  // Admin: Create & Manage Faculty accounts
+  const handleCreateFaculty = async (e) => {
+    e.preventDefault();
+    setActionSuccess('');
+    setError('');
+
+    if (!facultyForm.name || !facultyForm.email || !facultyForm.password) {
+      setError('Please fill in all faculty fields.');
+      return;
+    }
+
+    const nameRegex = /^[a-zA-Z\s.]+$/;
+    if (!nameRegex.test(facultyForm.name.trim())) {
+      setError("Name must contain only alphabets, dots, and spaces.");
+      return;
+    }
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@(gmail\.com|ksrce\.ac\.in)$/;
+    if (!emailRegex.test(facultyForm.email.trim())) {
+      setError("Email address must end with @gmail.com or @ksrce.ac.in.");
+      return;
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (!passwordRegex.test(facultyForm.password)) {
+      setError("Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&).");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await adminService.createFaculty(facultyForm);
+      setActionSuccess(`Faculty account for ${facultyForm.name} created successfully.`);
+      setFacultyForm({ name: '', email: '', password: '' });
+
+      const apiFac = await facultyService.getFacultyList();
+      setFacultyList(apiFac || []);
+    } catch (err) {
+      setError(err.message || 'Failed to create faculty account.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteFaculty = (facultyId, facultyName) => {
+    requestConfirm(
+      "Confirm Delete Faculty",
+      `Are you sure you want to permanently delete the faculty account for ${facultyName}? All events created by this faculty will also be removed. This action cannot be undone.`,
+      async () => {
+        setActionSuccess('');
+        setError('');
+        try {
+          setLoading(true);
+          await facultyService.deleteUser(facultyId);
+          setActionSuccess(`Faculty account for ${facultyName} has been deleted.`);
+          const apiFac = await facultyService.getFacultyList();
+          setFacultyList(apiFac || []);
+        } catch (err) {
+          setError(err.message || 'Failed to delete faculty account.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
+  };
+
   // Organizer: Add Staff
   const handleAddStaff = (e) => {
     e.preventDefault();
@@ -1366,11 +1467,11 @@ export default function Dashboard() {
     const ev = events.find(e => e._id === targetEventId);
     if (ev) {
       const today = new Date();
-      today.setHours(0,0,0,0);
+      today.setHours(0, 0, 0, 0);
       const start = new Date(ev.fromDate || ev.dateTime);
-      start.setHours(0,0,0,0);
+      start.setHours(0, 0, 0, 0);
       const end = new Date(ev.toDate || ev.dateTime || ev.fromDate);
-      end.setHours(23,59,59,999);
+      end.setHours(23, 59, 59, 999);
       if (today < start || today > end) {
         setQrScanResult({
           success: false,
@@ -1424,7 +1525,7 @@ export default function Dashboard() {
     if (!reg) return;
 
     const isChecked = !reg.checkedIn;
-    const newStatus = isChecked ? 'Checked-in' : 'Approved';
+    const newStatus = isChecked ? 'Checked-in' : 'Registered';
 
     try {
       if (regId && !String(regId).startsWith('reg_')) {
@@ -1449,6 +1550,36 @@ export default function Dashboard() {
     }
   };
 
+  // Toggle certificate manual approval checklist state
+  const handleToggleCertificateApproval = async (regId) => {
+    setError('');
+    setActionSuccess('');
+    const reg = registrations.find(r => r.id === regId);
+    if (!reg) return;
+
+    const newApproval = !reg.certificateApproved;
+
+    try {
+      if (regId && !String(regId).startsWith('reg_')) {
+        await registrationService.updateStatus(regId, reg.status, reg.points, newApproval);
+      }
+      const updated = registrations.map(r => {
+        if (r.id === regId) {
+          return {
+            ...r,
+            certificateApproved: newApproval
+          };
+        }
+        return r;
+      });
+      setRegistrations(updated);
+      localStorage.setItem('dash_global_registrations', JSON.stringify(updated));
+      setActionSuccess('Certificate approval status updated.');
+    } catch (err) {
+      setError(err.message || 'Failed to update certificate approval status');
+    }
+  };
+
   // Export report XLSX trigger using SheetJS
   const handleExportReport = (format) => {
     if (format !== 'xlsx') {
@@ -1460,10 +1591,13 @@ export default function Dashboard() {
       setError('');
       setActionSuccess('');
 
+      if (!qrScanEventId) {
+        setError('Please select a specific event from the dropdown to export.');
+        return;
+      }
+
       // Find events to export
-      const eventsToExport = qrScanEventId 
-        ? events.filter(e => e._id === qrScanEventId)
-        : events;
+      const eventsToExport = events.filter(e => e._id === qrScanEventId);
 
       if (eventsToExport.length === 0) {
         setError('No events found to export.');
@@ -1487,7 +1621,7 @@ export default function Dashboard() {
           [`Date:`, dateStr],
           [`Organizer Name:`, organizerName, `Organizer Email:`, organizerMail],
           [], // Blank row spacing
-          [`S NO`, `Student Name`, `Email`, `Dept`, `College`, `Paid Status`, `Attendance`]
+          [`S NO`, `Ticket ID`, `Student Name`, `Reg. Number`, `Email`, `Dept`, `Mobile`, `College`, `Team Details`, `Paid Status`, `Attendance`]
         ];
 
         const attendedRows = [];
@@ -1495,19 +1629,27 @@ export default function Dashboard() {
 
         eventRegs.forEach((reg, index) => {
           const isAttended = reg.checkedIn || reg.status === 'Checked-in';
-          const studentName = reg.studentName || reg.studentId?.name || 'N/A';
-          const studentEmail = reg.studentEmail || reg.studentId?.email || 'N/A';
-          const studentDept = reg.studentDept || reg.studentId?.deptYear || 'N/A';
-          const studentCollege = reg.studentCollege || 'K.S.R. College Of Engineering';
-          const paidStatus = reg.isPaid || reg.paid ? 'Paid' : 'Not Paid';
+          const ticketId = reg.ticketId || reg.sixDigitId || 'N/A';
+          const studentName = reg.studentName || reg.studentObj?.name || 'N/A';
+          const studentReg = reg.studentReg || reg.studentObj?.regNo || 'N/A';
+          const studentEmail = reg.studentEmail || reg.studentObj?.email || 'N/A';
+          const studentDept = reg.studentDept || reg.studentObj?.deptYear || 'N/A';
+          const studentMobile = reg.studentMobile || reg.studentObj?.mobileNumber || 'N/A';
+          const studentCollege = reg.collegeName || 'K.S.R. College Of Engineering';
+          const teamDetails = reg.teamDetails || 'N/A';
+          const paidStatus = reg.isPaid || reg.paid || reg.status === 'Registered' || reg.status === 'Checked-in' || reg.paymentVerified ? 'Paid' : 'Not Paid';
           const attendanceVal = isAttended ? 'Yes' : 'No';
 
           const rowData = [
             index + 1,
+            ticketId,
             studentName,
+            studentReg,
             studentEmail,
             studentDept,
+            studentMobile,
             studentCollege,
+            teamDetails,
             paidStatus,
             attendanceVal
           ];
@@ -1535,7 +1677,7 @@ export default function Dashboard() {
           [`Date:`, dateStr],
           [`Organizer Name:`, organizerName, `Organizer Email:`, organizerMail],
           [],
-          [`S NO`, `Student Name`, `Email`, `Dept`, `College`, `Paid Status`, `Attendance`]
+          [`S NO`, `Ticket ID`, `Student Name`, `Reg. Number`, `Email`, `Dept`, `Mobile`, `College`, `Team Details`, `Paid Status`, `Attendance`]
         ];
         const notAttendedMapped = notAttendedRows.map((row, idx) => {
           const r = [...row];
@@ -1547,10 +1689,14 @@ export default function Dashboard() {
         // Extend cell column widths
         const colWidths = [
           { wch: 8 },   // S NO
+          { wch: 15 },  // Ticket ID
           { wch: 25 },  // Student Name
+          { wch: 15 },  // Reg. Number
           { wch: 32 },  // Email
-          { wch: 15 },  // Dept
+          { wch: 20 },  // Dept
+          { wch: 15 },  // Mobile
           { wch: 35 },  // College
+          { wch: 25 },  // Team Details
           { wch: 15 },  // Paid Status
           { wch: 12 }   // Attendance
         ];
@@ -1592,14 +1738,14 @@ export default function Dashboard() {
     const start = evt.fromDate || evt.dateTime || evt.date;
     const end = evt.toDate;
     if (!start) return '';
-    
+
     const dStart = new Date(start);
     const startStr = isNaN(dStart.getTime()) ? '' : dStart.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + dStart.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     if (!end) return startStr;
-    
+
     const dEnd = new Date(end);
     const endStr = isNaN(dEnd.getTime()) ? '' : dEnd.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) + ' at ' + dEnd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    
+
     if (startStr === endStr) return startStr;
     return `${startStr} - ${endStr}`;
   };
@@ -1617,28 +1763,30 @@ export default function Dashboard() {
     { id: 'profile', label: 'My Profile', icon: '👤' }
   ];
 
-  const organizerTabs = [
-    { id: 'home', label: 'Home', icon: '🏠' },
-    { id: 'event-plan', label: 'Event Plan', icon: '📅' },
-    { id: 'registrations', label: 'Registrations', icon: '📝' },
-    { id: 'result-entry', label: 'Result Entry', icon: '🥇' },
-    { id: 'report-menu', label: 'Report Menu', icon: '📊' },
-    { id: 'profile', label: 'My Profile', icon: '👤' }
-  ];
+  const organizerTabs = [];
 
   const facultyTabs = [
     { id: 'home', label: 'Home', icon: '🏠' },
+    { id: 'event-plan', label: 'Create Event', icon: '📅' },
     { id: 'faculty-events', label: 'Event Page', icon: '📅' },
     { id: 'faculty-registrations', label: 'Student Registrations', icon: '👨‍🎓' },
-    { id: 'faculty-approve', label: 'Approve Events', icon: '✅' },
-    { id: 'faculty-approve-organizer', label: 'Approve Organizers', icon: '🔑' },
-    { id: 'clubs', label: 'Clubs Directory', icon: '🏢' },
     { id: 'faculty-reports', label: 'Reports', icon: '📊' },
     { id: 'profile', label: 'My Profile', icon: '👤' }
   ];
 
-  const isFaculty = user.role === 'faculty';
-  const tabsToRender = isStudent ? studentTabs : isFaculty ? facultyTabs : organizerTabs;
+  const adminTabs = [
+    { id: 'home', label: 'Home', icon: '🏠' },
+    { id: 'event-plan', label: 'Create Event', icon: '📅' },
+    { id: 'faculty-events', label: 'Event Page', icon: '📅' },
+    { id: 'faculty-registrations', label: 'Student Registrations', icon: '👨‍🎓' },
+    { id: 'faculty-reports', label: 'Reports', icon: '📊' },
+    { id: 'manage-faculty', label: 'Manage Faculty', icon: '🛠️' },
+    { id: 'profile', label: 'My Profile', icon: '👤' }
+  ];
+
+  const isFaculty = user.role === 'faculty' || user.role === 'admin';
+  const isAdmin = user.role === 'admin';
+  const tabsToRender = isStudent ? studentTabs : isAdmin ? adminTabs : facultyTabs;
 
   return (
     <div className="dashboard-container">
@@ -1647,8 +1795,8 @@ export default function Dashboard() {
 
       {/* Sidebar Navigation */}
       <aside className={`dashboard-sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <div 
-          className="sidebar-header" 
+        <div
+          className="sidebar-header"
           onClick={() => navigate('/')}
           style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '16px', cursor: 'pointer' }}
           title="Go to Homepage"
@@ -1656,7 +1804,7 @@ export default function Dashboard() {
           <img src={logoImg} alt="KSR Logo" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', border: '1.5px solid var(--dash-border)' }} />
           <div className="sidebar-title-container">
             <span className="sidebar-title" style={{ fontSize: '15px', fontWeight: '800', letterSpacing: '0.3px', color: 'var(--dash-text)' }}>CAMPUS EVENTS</span>
-            <span className="sidebar-subtitle" style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}>{isStudent ? 'Student Portal' : isFaculty ? 'Faculty Portal' : user.role === 'admin' ? 'Admin Portal' : 'Organizer Portal'}</span>
+            <span className="sidebar-subtitle" style={{ fontSize: '11px', color: 'var(--dash-text-muted)' }}>{isStudent ? 'Student Portal' : isAdmin ? 'Admin Portal' : 'Faculty Portal'}</span>
           </div>
         </div>
 
@@ -1670,7 +1818,7 @@ export default function Dashboard() {
               iconSvg = <svg {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
             } else if (tab.id === 'registrations' || tab.id === 'faculty-registrations') {
               iconSvg = <svg {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"></path></svg>;
-            } else if (tab.id === 'attendance') {
+            } else if (tab.id === 'attendance' || tab.id === 'faculty-attendance') {
               iconSvg = <svg {...props}><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>;
             } else if (tab.id === 'certificates') {
               iconSvg = <svg {...props}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>;
@@ -1680,6 +1828,8 @@ export default function Dashboard() {
               iconSvg = <svg {...props}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>;
             } else if (tab.id === 'staff' || tab.id === 'clubs') {
               iconSvg = <svg {...props}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>;
+            } else if (tab.id === 'manage-faculty') {
+              iconSvg = <svg {...props}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>;
             } else if (tab.id === 'result-entry') {
               iconSvg = <svg {...props}><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>;
             } else if (tab.id === 'report-menu' || tab.id === 'faculty-reports') {
@@ -1842,7 +1992,7 @@ export default function Dashboard() {
                             const venueVal = matchingEvent ? (matchingEvent.venue || matchingEvent.location) : 'Campus Venue';
                             return (
                               <div key={reg.id} className="dash-event-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-                                <div 
+                                <div
                                   className="event-card-header"
                                   style={{
                                     backgroundImage: `url("${eventImg}")`,
@@ -1893,12 +2043,12 @@ export default function Dashboard() {
                     </div>
 
                     <div className="event-grid">
-                      {events.filter(e => new Date(e.date) >= new Date()).slice(0, 3).map((event) => {
+                      {events.filter(e => new Date(e.dateTime || e.fromDate || e.date) >= new Date() && e.status === 'Approved').slice(0, 3).map((event) => {
                         const isRegistered = registeredEventIds.includes(event._id);
                         const eventImg = getEventImage(event);
                         return (
                           <div key={event._id} className="dash-event-card">
-                            <div 
+                            <div
                               className="event-card-header"
                               style={{
                                 backgroundImage: `url(${eventImg})`,
@@ -1930,13 +2080,13 @@ export default function Dashboard() {
                                   Details
                                 </button>
                                 <button
-                                   disabled={isRegistered || (event.registrationsCount >= event.maxParticipants)}
-                                   onClick={() => (isRegistered || (event.registrationsCount >= event.maxParticipants)) ? null : navigate(`/register?eventId=${event._id}`)}
-                                   className="dash-btn dash-btn-primary"
-                                   style={(event.registrationsCount >= event.maxParticipants && !isRegistered) ? { background: '#ef4444', borderColor: '#ef4444' } : {}}
-                                 >
-                                   {isRegistered ? 'Registered' : (event.registrationsCount >= event.maxParticipants) ? 'Event Full' : 'Register Now'}
-                                 </button>
+                                  disabled={isRegistered || (event.registrationsCount >= event.maxParticipants)}
+                                  onClick={() => (isRegistered || (event.registrationsCount >= event.maxParticipants)) ? null : navigate(`/register?eventId=${event._id}`)}
+                                  className="dash-btn dash-btn-primary"
+                                  style={(event.registrationsCount >= event.maxParticipants && !isRegistered) ? { background: '#ef4444', borderColor: '#ef4444' } : {}}
+                                >
+                                  {isRegistered ? 'Registered' : (event.registrationsCount >= event.maxParticipants) ? 'Event Full' : 'Register Now'}
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1979,7 +2129,7 @@ export default function Dashboard() {
                                   </td>
                                   <td>
                                     <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
-                                        reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
+                                      reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
                                       }`}>
                                       {reg.status === 'Approved' || reg.status === 'Registered' ? 'Registration Completed' : reg.status}
                                     </span>
@@ -2012,11 +2162,12 @@ export default function Dashboard() {
 
                 {/* 2. Student Browse Events Tab */}
                 {currentTab === 'browse-events' && (() => {
-                  const upcomingEvents = events.filter(e => new Date(e.date) >= new Date());
-                  const closedEvents = events.filter(e => new Date(e.date) < new Date());
+                  const approvedEvents = events.filter(e => e.status === 'Approved');
+                  const upcomingEvents = approvedEvents.filter(e => new Date(e.dateTime || e.fromDate || e.date) >= new Date());
+                  const closedEvents = approvedEvents.filter(e => new Date(e.dateTime || e.fromDate || e.date) < new Date());
                   const filteredEvents =
                     browseFilter === 'upcoming' ? upcomingEvents :
-                      browseFilter === 'closed' ? closedEvents : events;
+                      browseFilter === 'closed' ? closedEvents : approvedEvents;
 
                   return (
                     <div>
@@ -2028,7 +2179,7 @@ export default function Dashboard() {
                             className={`filter-btn ${browseFilter === 'all' ? 'active' : ''}`}
                             onClick={() => setBrowseFilter('all')}
                           >
-                            All&nbsp;<span style={{ opacity: 0.7 }}>({events.length})</span>
+                            All&nbsp;<span style={{ opacity: 0.7 }}>({approvedEvents.length})</span>
                           </button>
                           <button
                             className={`filter-btn ${browseFilter === 'upcoming' ? 'active' : ''}`}
@@ -2059,7 +2210,7 @@ export default function Dashboard() {
                         <div className="event-grid" style={{ marginTop: '20px' }}>
                           {filteredEvents.map((event) => {
                             const isRegistered = registeredEventIds.includes(event._id);
-                            const isPast = new Date(event.date) < new Date();
+                            const isPast = new Date(event.dateTime || event.fromDate || event.date) < new Date();
                             return (
                               <div key={event._id} className="dash-event-card">
                                 <div
@@ -2193,7 +2344,7 @@ export default function Dashboard() {
                               <td>{new Date(reg.date).toLocaleDateString()}</td>
                               <td>
                                 <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
-                                    reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
+                                  reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
                                   }`}>
                                   {reg.status === 'Approved' || reg.status === 'Registered' ? 'Registration Completed' : reg.status === 'Pending' ? 'Pending Registration Confirmation' : reg.status}
                                 </span>
@@ -2244,14 +2395,14 @@ export default function Dashboard() {
 
                         {isScanning ? (
                           <div style={{ position: 'relative', width: '100%', maxWidth: '320px', margin: '0 auto', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--brand-green-light)' }}>
-                            <video 
-                              ref={videoRef} 
-                              style={{ width: '100%', display: 'block', background: '#000' }} 
-                              playsInline 
+                            <video
+                              ref={videoRef}
+                              style={{ width: '100%', display: 'block', background: '#000' }}
+                              playsInline
                             />
-                            <button 
-                              type="button" 
-                              onClick={stopScanning} 
+                            <button
+                              type="button"
+                              onClick={stopScanning}
                               className="dash-btn"
                               style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', background: '#dc2626', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer' }}
                             >
@@ -2259,9 +2410,9 @@ export default function Dashboard() {
                             </button>
                           </div>
                         ) : (
-                          <button 
-                            type="button" 
-                            onClick={startScanning} 
+                          <button
+                            type="button"
+                            onClick={startScanning}
                             className="dash-btn dash-btn-primary"
                             style={{ margin: '10px 0' }}
                           >
@@ -2460,7 +2611,7 @@ export default function Dashboard() {
                               const eventImg = getEventImage(event);
                               return (
                                 <div key={event._id} className="dash-event-card">
-                                  <div 
+                                  <div
                                     className="event-card-header"
                                     style={{
                                       backgroundImage: `url(${eventImg})`,
@@ -2476,10 +2627,10 @@ export default function Dashboard() {
                                         event.status === 'Approved'
                                           ? { background: 'var(--brand-green-light)', color: 'var(--brand-text-green)', position: 'absolute', bottom: '12px', left: '12px' }
                                           : event.status === 'Denied' || event.status === 'Rejected'
-                                          ? { background: '#ef4444', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
-                                          : event.status === 'Deleted'
-                                          ? { background: '#7f1d1d', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
-                                          : { background: '#f59e0b', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
+                                            ? { background: '#ef4444', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
+                                            : event.status === 'Deleted'
+                                              ? { background: '#7f1d1d', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
+                                              : { background: '#f59e0b', color: '#fff', position: 'absolute', bottom: '12px', left: '12px' }
                                       }
                                     >
                                       {event.status || 'Pending Review'}
@@ -2551,7 +2702,7 @@ export default function Dashboard() {
                               const eventImg = getEventImage(event);
                               return (
                                 <div key={event._id} className="dash-event-card">
-                                  <div 
+                                  <div
                                     className="event-card-header"
                                     style={{
                                       backgroundImage: `url(${eventImg})`,
@@ -2605,10 +2756,12 @@ export default function Dashboard() {
                     </div>
                   );
                 })()}
+              </>
+            )}
 
-                {/* 2. Organizer Event Plan Form Tab */}
-                {currentTab === 'event-plan' && (
-                  <div>
+            {/* 2. Organizer Event Plan Form Tab */}
+            {currentTab === 'event-plan' && (isOrganizer || isFaculty) && (
+              <div>
                     <div className="section-header">
                       <h3>Plan & Publish College Event</h3>
                     </div>
@@ -2919,21 +3072,23 @@ export default function Dashboard() {
                             required
                           />
                         </div>
-                        <div className="dash-form-group">
-                          <label>Requested Faculty Coordinator (Optional)</label>
-                          <select
-                            value={eventForm.requestedFaculty}
-                            onChange={(e) => setEventForm({ ...eventForm, requestedFaculty: e.target.value })}
-                            className="dash-select"
-                          >
-                            <option value="">-- No Coordinator Request --</option>
-                            {facultyList.map((fac) => (
-                              <option key={fac._id} value={fac._id}>
-                                {fac.name} ({fac.email})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        {isOrganizer && (
+                          <div className="dash-form-group">
+                            <label>Requested Faculty Coordinator (Optional)</label>
+                            <select
+                              value={eventForm.requestedFaculty}
+                              onChange={(e) => setEventForm({ ...eventForm, requestedFaculty: e.target.value })}
+                              className="dash-select"
+                            >
+                              <option value="">-- No Coordinator Request --</option>
+                              {facultyList.map((fac) => (
+                                <option key={fac._id} value={fac._id}>
+                                  {fac.name} ({fac.email})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
                         <div className="dash-form-group">
                           <label>Event Poster Image (Upload or Select Preset Theme)</label>
                           <input
@@ -2969,10 +3124,10 @@ export default function Dashboard() {
                           </select>
                           {eventForm.posterUrl && (
                             <div style={{ marginTop: '12px' }}>
-                              <img 
-                                src={eventForm.posterUrl} 
-                                alt="Poster Preview" 
-                                style={{ maxWidth: '100%', maxHeight: '180px', borderRadius: '6px', border: '1px solid var(--dash-border)' }} 
+                              <img
+                                src={eventForm.posterUrl}
+                                alt="Poster Preview"
+                                style={{ maxWidth: '100%', maxHeight: '180px', borderRadius: '6px', border: '1px solid var(--dash-border)' }}
                               />
                             </div>
                           )}
@@ -3060,15 +3215,37 @@ export default function Dashboard() {
                   </div>
                 )}
 
+            {isOrganizer && (
+              <>
                 {/* 3. Organizer Registrations Approval Tab */}
                 {currentTab === 'registrations' && (() => {
                   const myCreatedEvents = events.filter(e => String(e.createdBy?._id || e.createdBy) === String(user._id));
-                  const myEventRegs = registrations.filter(r => myCreatedEvents.length === 0 || myCreatedEvents.some(e => String(e._id) === String(getRegEventId(r))));
+                  const myEventRegs = registrations.filter(r => {
+                    const matchUserEvent = myCreatedEvents.some(e => String(e._id) === String(getRegEventId(r)));
+                    if (!matchUserEvent) return false;
+                    if (organizerRegEventId) {
+                      return String(getRegEventId(r)) === String(organizerRegEventId);
+                    }
+                    return true;
+                  });
 
                   return (
                     <div>
-                      <div className="section-header">
+                      <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                         <h3>Review Student Registrations</h3>
+                        <div className="dash-form-group" style={{ margin: 0, minWidth: '220px' }}>
+                          <select
+                            value={organizerRegEventId}
+                            onChange={(e) => setOrganizerRegEventId(e.target.value)}
+                            className="dash-select"
+                            style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid var(--dash-border)', background: 'var(--dash-card-bg)', color: 'var(--dash-text)' }}
+                          >
+                            <option value="">-- All My Events --</option>
+                            {myCreatedEvents.map(e => (
+                              <option key={e._id} value={e._id}>{e.title}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
 
                       <div className="dash-table-container">
@@ -3082,6 +3259,7 @@ export default function Dashboard() {
                               <th>Payment Status</th>
                               <th>Current Status</th>
                               <th>Attendance</th>
+                              <th>Certificate</th>
                               <th>Actions</th>
                             </tr>
                           </thead>
@@ -3109,7 +3287,7 @@ export default function Dashboard() {
                                   </td>
                                   <td>
                                     <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
-                                        reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
+                                      reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
                                       }`}>
                                       {reg.status}
                                     </span>
@@ -3124,6 +3302,21 @@ export default function Dashboard() {
                                         ❌ Absent
                                       </span>
                                     )}
+                                  </td>
+                                  <td>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={!!reg.certificateApproved}
+                                        disabled={reg.status !== 'Checked-in'}
+                                        onChange={() => handleToggleCertificateApproval(reg.id)}
+                                        style={{ width: '16px', height: '16px', cursor: reg.status === 'Checked-in' ? 'pointer' : 'not-allowed' }}
+                                        title={reg.status === 'Checked-in' ? "Approve certificate" : "Student must be checked-in first"}
+                                      />
+                                      <span style={{ fontSize: '12px', color: reg.status === 'Checked-in' ? 'var(--dash-text)' : 'var(--dash-text-muted)' }}>
+                                        {reg.certificateApproved ? 'Approved' : 'Pending'}
+                                      </span>
+                                    </div>
                                   </td>
                                   <td>
                                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -3519,7 +3712,7 @@ export default function Dashboard() {
                   const myCreatedEvents = events.filter(e => String(e.createdBy?._id || e.createdBy) === String(user._id));
                   const myEventRegs = registrations.filter(r => myCreatedEvents.some(e => String(e._id) === String(getRegEventId(r))));
                   const selectedEventId = qrScanEventId;
-                  const currentEventRegs = selectedEventId 
+                  const currentEventRegs = selectedEventId
                     ? registrations.filter(r => getRegEventId(r) === selectedEventId)
                     : myEventRegs;
                   const attended = currentEventRegs.filter(r => r.checkedIn).length;
@@ -3563,7 +3756,7 @@ export default function Dashboard() {
                           <h3>Report Metrics</h3>
 
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-                            <div 
+                            <div
                               onClick={() => setCurrentTab('registrations')}
                               style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
                               onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -3574,7 +3767,7 @@ export default function Dashboard() {
                                 {currentEventRegs.filter(r => r.status !== 'Pending' && r.status !== 'Cancelled' && r.status !== 'Rejected').length}
                               </h4>
                             </div>
-                            <div 
+                            <div
                               onClick={() => setCurrentTab('registrations')}
                               style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
                               onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -3585,7 +3778,7 @@ export default function Dashboard() {
                                 {attended}
                               </h4>
                             </div>
-                            <div 
+                            <div
                               onClick={() => setCurrentTab('registrations')}
                               style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
                               onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -3596,7 +3789,7 @@ export default function Dashboard() {
                                 {rate}%
                               </h4>
                             </div>
-                            <div 
+                            <div
                               onClick={() => setCurrentTab('registrations')}
                               style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
                               onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -3655,8 +3848,8 @@ export default function Dashboard() {
                   <div>
                     <div className="faculty-summary-banner">
                       <div className="banner-text">
-                        <h2>Faculty Event Management Dashboard</h2>
-                        <p>Oversee student participation, approve event proposals, monitor attendance, and generate comprehensive reports.</p>
+                        <h2>{user.role === 'admin' ? 'Admin' : 'Faculty'} Event Management Dashboard</h2>
+                        <p>Oversee student participation, manage events, monitor attendance, and generate comprehensive reports.</p>
                       </div>
                     </div>
 
@@ -3665,7 +3858,7 @@ export default function Dashboard() {
                       <div className="stat-card faculty-stat-card" onClick={() => setCurrentTab('faculty-events')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">📅</div>
                         <div className="stat-info">
-                          <span className="stat-value">{events.length}</span>
+                          <span className="stat-value">{events.filter(e => e.status === 'Approved' && new Date(e.dateTime || e.date) >= new Date()).length}</span>
                           <span className="stat-label">Active Events</span>
                         </div>
                       </div>
@@ -3676,15 +3869,23 @@ export default function Dashboard() {
                           <span className="stat-label">Total Registrations</span>
                         </div>
                       </div>
-                      <div className="stat-card faculty-stat-card" onClick={() => setCurrentTab('faculty-approve')} style={{ cursor: 'pointer' }}>
-                        <div className="stat-icon">⏳</div>
-                        <div className="stat-info">
-                          <span className="stat-value">
-                            {events.filter(e => e.status === 'Pending Review' || e.status === 'Pending').length}
-                          </span>
-                          <span className="stat-label">Pending Approvals</span>
+                      {user.role === 'admin' ? (
+                        <div className="stat-card faculty-stat-card" onClick={() => setCurrentTab('manage-faculty')} style={{ cursor: 'pointer' }}>
+                          <div className="stat-icon">🎓</div>
+                          <div className="stat-info">
+                            <span className="stat-value">{facultyList.length}</span>
+                            <span className="stat-label">Faculty Accounts</span>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="stat-card faculty-stat-card" style={{ opacity: 0.5, cursor: 'default' }}>
+                          <div className="stat-icon">🛡️</div>
+                          <div className="stat-info">
+                            <span className="stat-value">0</span>
+                            <span className="stat-label">No Approvals Needed</span>
+                          </div>
+                        </div>
+                      )}
                       <div className="stat-card faculty-stat-card" onClick={() => setCurrentTab('faculty-registrations')} style={{ cursor: 'pointer' }}>
                         <div className="stat-icon">✅</div>
                         <div className="stat-info">
@@ -3697,8 +3898,9 @@ export default function Dashboard() {
                     </div>
 
                     {/* Pending Approvals Card */}
+                    {/* Current Events List */}
                     <div className="section-header" style={{ marginTop: '32px', marginBottom: '20px' }}>
-                      <h3>Pending Event Approvals</h3>
+                      <h3>Current Events</h3>
                     </div>
 
                     <div className="dash-table-container">
@@ -3708,34 +3910,26 @@ export default function Dashboard() {
                             <th>Event Name</th>
                             <th>Club</th>
                             <th>Date</th>
+                            <th>Venue</th>
                             <th>Status</th>
-                            <th>Action</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {events.filter(e => e.status === 'Pending Review' || e.status === 'Pending').slice(0, 3).map((event) => (
+                          {events.filter(e => e.status === 'Approved').slice(0, 5).map((event) => (
                             <tr key={event._id}>
                               <td style={{ fontWeight: 'bold' }}>{event.title}</td>
                               <td>{event.clubName}</td>
                               <td>{formatDate(event.date)}</td>
+                              <td>{event.venue || event.location || 'Main Campus'}</td>
                               <td>
-                                <span className="badge badge-warning">Pending Review</span>
-                              </td>
-                              <td>
-                                <button
-                                  onClick={() => setCurrentTab('faculty-approve')}
-                                  className="dash-btn dash-btn-outline"
-                                  style={{ padding: '4px 10px', fontSize: '11px' }}
-                                >
-                                  Review
-                                </button>
+                                <span className="badge badge-success">🟢 Active</span>
                               </td>
                             </tr>
                           ))}
-                          {events.filter(e => e.status === 'Pending Review' || e.status === 'Pending').length === 0 && (
+                          {events.filter(e => e.status === 'Approved').length === 0 && (
                             <tr>
                               <td colSpan="5" style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)' }}>
-                                No pending approvals.
+                                No active events found.
                               </td>
                             </tr>
                           )}
@@ -3753,16 +3947,25 @@ export default function Dashboard() {
                     browseFilter === 'upcoming' ? upcomingEvents :
                       browseFilter === 'closed' ? closedEvents : events;
 
+                  const sortedEvents = [...filteredEvents].sort((a, b) => {
+                    const aDeleted = a.status === 'Deleted' ? 1 : 0;
+                    const bDeleted = b.status === 'Deleted' ? 1 : 0;
+                    if (aDeleted !== bDeleted) {
+                      return aDeleted - bDeleted;
+                    }
+                    return new Date(b.date) - new Date(a.date);
+                  });
+
                   return (
                     <div>
                       <div className="section-header" style={{ flexWrap: 'wrap', gap: '12px' }}>
                         <h3>College Events</h3>
-                        <div className="filter-tabs">
+                        <div style={{ display: 'flex', gap: '10px' }}>
                           <button
                             className={`filter-btn ${browseFilter === 'all' ? 'active' : ''}`}
                             onClick={() => setBrowseFilter('all')}
                           >
-                            All ({events.length})
+                            All Events ({events.length})
                           </button>
                           <button
                             className={`filter-btn ${browseFilter === 'upcoming' ? 'active' : ''}`}
@@ -3780,7 +3983,7 @@ export default function Dashboard() {
                       </div>
 
                       <div className="event-grid" style={{ marginTop: '20px' }}>
-                        {filteredEvents.map((event) => {
+                        {sortedEvents.map((event) => {
                           const isPast = new Date(event.date) < new Date();
                           const eventRegs = registrations.filter(r => r.eventId === event._id);
                           const eventImg = getEventImage(event);
@@ -3802,11 +4005,11 @@ export default function Dashboard() {
                                     position: 'absolute',
                                     bottom: '12px',
                                     left: '12px',
-                                    background: event.status === 'Approved' ? 'var(--brand-green-light)' : event.status === 'Rejected' ? '#fee2e2' : '#fef3c7',
-                                    color: event.status === 'Approved' ? 'var(--brand-text-green)' : event.status === 'Rejected' ? '#ef4444' : '#b45309'
+                                    background: event.status === 'Approved' ? 'var(--brand-green-light)' : event.status === 'Rejected' ? '#fee2e2' : event.status === 'Deleted' ? '#f3f4f6' : '#fef3c7',
+                                    color: event.status === 'Approved' ? 'var(--brand-text-green)' : event.status === 'Rejected' ? '#ef4444' : event.status === 'Deleted' ? '#4b5563' : '#b45309'
                                   }}
                                 >
-                                  {event.status === 'Approved' ? '🟢 Approved' : event.status === 'Rejected' ? '🔴 Rejected' : '⏳ Pending'}
+                                  {event.status === 'Approved' ? '🟢 Approved' : event.status === 'Rejected' ? '🔴 Rejected' : event.status === 'Deleted' ? `🗑️ Deleted by ${event.deletedBy?.name || 'Staff'}` : '⏳ Pending'}
                                 </span>
                               </div>
 
@@ -3818,7 +4021,10 @@ export default function Dashboard() {
                                   <div className="event-card-info-item"><span>📍</span> {event.venue || event.location || 'Main Campus'}</div>
                                   <div className="event-card-info-item"><span>👥</span> {eventRegs.length} registered</div>
                                 </div>
-                                <div className="event-card-action-row" style={{ display: 'flex', gap: '8px' }}>
+                                <div style={{ fontSize: '12.5px', color: 'var(--dash-text-muted)', marginTop: '8px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <span>👤</span> <strong>Created by:</strong> {event.createdBy?.name || 'Staff'} ({event.createdBy?.role || 'faculty'})
+                                </div>
+                                <div className="event-card-action-row" style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                                   <button
                                     onClick={() => { setSelectedEvent(event); setIsEventDetailModalOpen(true); }}
                                     className="dash-btn dash-btn-secondary"
@@ -3826,13 +4032,25 @@ export default function Dashboard() {
                                   >
                                     View Details
                                   </button>
-                                  <button
-                                    onClick={() => handleDeleteEvent(event._id)}
-                                    className="dash-btn dash-btn-secondary"
-                                    style={{ flex: 'none', color: '#ff6b6b', border: '1px solid #ff6b6b' }}
-                                  >
-                                    Delete
-                                  </button>
+                                  {(isAdmin || String(event.createdBy?._id || event.createdBy) === String(user?._id)) && (
+                                    event.status === 'Deleted' ? (
+                                      <button
+                                        onClick={() => handlePermanentDeleteEvent(event._id)}
+                                        className="dash-btn dash-btn-secondary"
+                                        style={{ flex: 'none', color: '#ff4d4d', backgroundColor: '#ffe6e6', border: '1px solid #ff4d4d' }}
+                                      >
+                                        Permanent Delete
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleDeleteEvent(event._id)}
+                                        className="dash-btn dash-btn-secondary"
+                                        style={{ flex: 'none', color: '#ff6b6b', border: '1px solid #ff6b6b' }}
+                                      >
+                                        Delete
+                                      </button>
+                                    )
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -3881,8 +4099,8 @@ export default function Dashboard() {
                         <div className="stat-icon">📝</div>
                         <div className="stat-info">
                           <span className="stat-value">
-                            {qrScanEventId 
-                              ? registrations.filter(r => r.eventId === qrScanEventId).length 
+                            {qrScanEventId
+                              ? registrations.filter(r => r.eventId === qrScanEventId).length
                               : registrations.length}
                           </span>
                           <span className="stat-label">Total Registered</span>
@@ -3892,8 +4110,8 @@ export default function Dashboard() {
                         <div className="stat-icon">✅</div>
                         <div className="stat-info">
                           <span className="stat-value">
-                            {qrScanEventId 
-                              ? registrations.filter(r => r.eventId === qrScanEventId && r.checkedIn).length 
+                            {qrScanEventId
+                              ? registrations.filter(r => r.eventId === qrScanEventId && r.checkedIn).length
                               : registrations.filter(r => r.checkedIn).length}
                           </span>
                           <span className="stat-label">Attended</span>
@@ -3903,8 +4121,8 @@ export default function Dashboard() {
                         <div className="stat-icon">⏳</div>
                         <div className="stat-info">
                           <span className="stat-value">
-                            {qrScanEventId 
-                              ? registrations.filter(r => r.eventId === qrScanEventId && r.status === 'Pending').length 
+                            {qrScanEventId
+                              ? registrations.filter(r => r.eventId === qrScanEventId && r.status === 'Pending').length
                               : registrations.filter(r => r.status === 'Pending').length}
                           </span>
                           <span className="stat-label">Pending Approval</span>
@@ -3940,7 +4158,7 @@ export default function Dashboard() {
                                   <td style={{ fontWeight: 'bold' }}>{reg.studentName}</td>
                                   <td>{reg.studentReg}</td>
                                   <td>{reg.studentEmail}</td>
-                                  <td 
+                                  <td
                                     style={{ fontWeight: 'bold', color: 'var(--ace-primary, #10b981)', cursor: 'pointer' }}
                                     onClick={() => {
                                       const matchingEvent = events.find(e => e._id === reg.eventId || e.title === reg.eventTitle);
@@ -3973,13 +4191,13 @@ export default function Dashboard() {
                                   </td>
                                   <td>
                                     <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
-                                        reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
+                                      reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
                                       }`}>
                                       {reg.status}
                                     </span>
                                   </td>
                                   <td>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                       <input
                                         type="checkbox"
                                         checked={reg.checkedIn}
@@ -3987,6 +4205,52 @@ export default function Dashboard() {
                                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                                         title="Mark attendance"
                                       />
+                                      {reg.paymentScreenshot && (
+                                        <button
+                                          onClick={() => setSelectedScreenshotReg(reg)}
+                                          className="dash-btn dash-btn-outline"
+                                          style={{ padding: '2px 6px', fontSize: '10px', flex: 'none' }}
+                                          title="View payment transaction slip"
+                                        >
+                                          🔍 View Slip
+                                        </button>
+                                      )}
+                                      {isAdmin && (
+                                        <button
+                                          onClick={() => setSelectedStudentDetail(reg)}
+                                          className="dash-btn dash-btn-outline"
+                                          style={{ padding: '2px 6px', fontSize: '10px', flex: 'none', borderColor: '#3b82f6', color: '#3b82f6' }}
+                                          title="View full student profile details"
+                                        >
+                                          👤 View Info
+                                        </button>
+                                      )}
+                                      {reg.status === 'Pending' ? (
+                                        <>
+                                          <button
+                                            onClick={() => handleUpdateRegistrationStatus(reg.id, 'Registered')}
+                                            className="dash-btn dash-btn-primary"
+                                            style={{ padding: '2px 6px', fontSize: '10px', flex: 'none' }}
+                                          >
+                                            Approve
+                                          </button>
+                                          <button
+                                            onClick={() => handleUpdateRegistrationStatus(reg.id, 'Rejected')}
+                                            className="dash-btn"
+                                            style={{ padding: '2px 6px', fontSize: '10px', flex: 'none', color: '#ff6b6b', border: '1px solid #ff6b6b' }}
+                                          >
+                                            Reject
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleUpdateRegistrationStatus(reg.id, 'Pending')}
+                                          className="dash-btn dash-btn-outline"
+                                          style={{ padding: '2px 6px', fontSize: '10px', flex: 'none' }}
+                                        >
+                                          Reset
+                                        </button>
+                                      )}
                                       <button
                                         onClick={() => handleDeleteRegistration(reg.id)}
                                         className="dash-btn dash-btn-secondary"
@@ -4047,7 +4311,7 @@ export default function Dashboard() {
                             <tbody>
                               {events.filter(e => String(e.requestedFaculty?._id || e.requestedFaculty) === String(user._id) && e.coordinationStatus === 'Pending').map((event) => (
                                 <tr key={event._id}>
-                                  <td 
+                                  <td
                                     style={{ fontWeight: 'bold', color: 'var(--brand-green-light)', cursor: 'pointer', textDecoration: 'underline' }}
                                     onClick={() => setSelectedApprovalEvent(event)}
                                   >
@@ -4061,15 +4325,15 @@ export default function Dashboard() {
                                   <td>{formatDate(event.date || event.dateTime)}</td>
                                   <td>
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                      <button 
-                                        className="dash-btn dash-btn-primary" 
+                                      <button
+                                        className="dash-btn dash-btn-primary"
                                         onClick={() => handleUpdateCoordination(event._id, 'Accepted')}
                                         style={{ padding: '4px 10px', fontSize: '11px' }}
                                       >
                                         Accept
                                       </button>
-                                      <button 
-                                        className="dash-btn" 
+                                      <button
+                                        className="dash-btn"
                                         onClick={() => handleUpdateCoordination(event._id, 'Denied')}
                                         style={{ padding: '4px 10px', fontSize: '11px', backgroundColor: '#ef4444', color: '#fff', border: 'none' }}
                                       >
@@ -4131,7 +4395,7 @@ export default function Dashboard() {
                                 </td>
                                 <td>
                                   <span className={`badge ${currentStatus === 'Approved' ? 'badge-success' :
-                                      currentStatus === 'Rejected' ? 'badge-danger' : 'badge-warning'
+                                    currentStatus === 'Rejected' ? 'badge-danger' : 'badge-warning'
                                     }`}>
                                     {currentStatus}
                                   </span>
@@ -4405,7 +4669,7 @@ export default function Dashboard() {
                         <h3>Report Metrics</h3>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-                          <div 
+                          <div
                             onClick={() => setCurrentTab('faculty-registrations')}
                             style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
                             onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -4419,7 +4683,7 @@ export default function Dashboard() {
                               }
                             </h4>
                           </div>
-                          <div 
+                          <div
                             onClick={() => setCurrentTab('faculty-registrations')}
                             style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
                             onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -4433,7 +4697,7 @@ export default function Dashboard() {
                               }
                             </h4>
                           </div>
-                          <div 
+                          <div
                             onClick={() => setCurrentTab('faculty-registrations')}
                             style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
                             onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -4451,7 +4715,7 @@ export default function Dashboard() {
                               }%
                             </h4>
                           </div>
-                          <div 
+                          <div
                             onClick={() => setCurrentTab('faculty-registrations')}
                             style={{ padding: '16px', background: 'linear-gradient(135deg, #166534 0%, #22c55e 100%)', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', transition: 'transform 0.2s' }}
                             onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -4532,6 +4796,100 @@ export default function Dashboard() {
                       <button onClick={() => setIsAddClubModalOpen(true)} className="dash-btn dash-btn-primary">
                         + Add New Club
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Admin Manage Faculty Tab */}
+                {currentTab === 'manage-faculty' && isAdmin && (
+                  <div>
+                    <div className="section-header">
+                      <h3>Faculty Accounts Directory</h3>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '30px', marginTop: '20px' }}>
+                      {/* Left: Create Faculty Form */}
+                      <div className="dash-card" style={{ padding: '20px', background: 'var(--dash-bg-card)', border: '1.5px solid var(--dash-border)', borderRadius: '12px' }}>
+                        <h4 style={{ marginBottom: '16px', color: 'var(--dash-text)' }}>Provision New Faculty Account</h4>
+                        <form onSubmit={handleCreateFaculty} className="dash-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                          <div className="dash-form-group">
+                            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--dash-text-muted)', marginBottom: '6px', display: 'block' }}>Faculty Name</label>
+                            <input
+                              type="text"
+                              value={facultyForm.name}
+                              onChange={(e) => setFacultyForm({ ...facultyForm, name: e.target.value })}
+                              className="dash-input"
+                              placeholder="e.g. Dr. A. Rajan"
+                              required
+                            />
+                          </div>
+                          <div className="dash-form-group">
+                            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--dash-text-muted)', marginBottom: '6px', display: 'block' }}>Email Address</label>
+                            <input
+                              type="email"
+                              value={facultyForm.email}
+                              onChange={(e) => setFacultyForm({ ...facultyForm, email: e.target.value })}
+                              className="dash-input"
+                              placeholder="rajan@ksrce.ac.in"
+                              required
+                            />
+                          </div>
+                          <div className="dash-form-group">
+                            <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--dash-text-muted)', marginBottom: '6px', display: 'block' }}>Access Password</label>
+                            <input
+                              type="password"
+                              value={facultyForm.password}
+                              onChange={(e) => setFacultyForm({ ...facultyForm, password: e.target.value })}
+                              className="dash-input"
+                              placeholder="Enter secure password"
+                              required
+                            />
+                          </div>
+                          <button type="submit" className="dash-btn dash-btn-primary" style={{ marginTop: '10px' }} disabled={loading}>
+                            {loading ? 'Creating...' : 'Create Faculty'}
+                          </button>
+                        </form>
+                      </div>
+
+                      {/* Right: Faculty Directory Table */}
+                      <div className="dash-table-container" style={{ margin: 0 }}>
+                        <table className="dash-table">
+                          <thead>
+                            <tr>
+                              <th>Faculty Name</th>
+                              <th>Email</th>
+                              <th>Account Status</th>
+                              <th>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {facultyList.length === 0 ? (
+                              <tr>
+                                <td colSpan="4" style={{ textAlign: 'center', color: 'var(--dash-text-muted)' }}>No faculty accounts found.</td>
+                              </tr>
+                            ) : (
+                              facultyList.map((fac) => (
+                                <tr key={fac._id}>
+                                  <td style={{ fontWeight: 'bold', color: 'var(--dash-text)' }}>{fac.name}</td>
+                                  <td>{fac.email}</td>
+                                  <td>
+                                    <span className="badge badge-success">Active</span>
+                                  </td>
+                                  <td>
+                                    <button
+                                      onClick={() => handleDeleteFaculty(fac._id, fac.name)}
+                                      className="dash-btn"
+                                      style={{ padding: '6px 12px', background: '#ef4444', borderColor: '#ef4444', color: '#fff', fontSize: '12px', borderRadius: '6px', cursor: 'pointer' }}
+                                    >
+                                      Delete
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -4621,7 +4979,7 @@ export default function Dashboard() {
               </div>
               <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  
+
                   {/* Event Details */}
                   <div style={{ borderBottom: '1px solid var(--dash-border)', paddingBottom: '16px' }}>
                     <h4 style={{ color: 'var(--dash-green)', margin: '0 0 10px 0', fontSize: '15px', fontWeight: 'bold' }}>Event Details</h4>
@@ -4656,9 +5014,9 @@ export default function Dashboard() {
                   {selectedApprovalEvent.status === 'Approved' && (
                     <div style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                       <h4 style={{ color: 'var(--dash-green)', margin: '0 0 4px 0', fontSize: '13px', alignSelf: 'flex-start', fontWeight: 'bold' }}>Unique Event Entry QR Code</h4>
-                      <img 
-                        src={selectedApprovalEvent.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedApprovalEvent._id)}`} 
-                        alt="Event QR Code" 
+                      <img
+                        src={selectedApprovalEvent.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedApprovalEvent._id)}`}
+                        alt="Event QR Code"
                         style={{ width: '150px', height: '150px', border: '1px solid var(--dash-border)', padding: '6px', borderRadius: '8px', backgroundColor: '#fff' }}
                       />
                       <button
@@ -4741,9 +5099,9 @@ export default function Dashboard() {
               {(user.role === 'organizer' || user.role === 'faculty' || user.role === 'admin') && (
                 <div style={{ borderTop: '1px solid var(--dash-border)', paddingTop: '16px', marginTop: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                   <h4 style={{ color: 'var(--brand-green-light)', margin: '0 0 4px 0', fontSize: '13px', alignSelf: 'flex-start' }}>Unique Event Entry QR Code</h4>
-                  <img 
-                    src={selectedEvent.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedEvent._id)}`} 
-                    alt="Event QR Code" 
+                  <img
+                    src={selectedEvent.qrCode || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedEvent._id)}`}
+                    alt="Event QR Code"
                     style={{ width: '150px', height: '150px', border: '1px solid var(--dash-border)', padding: '6px', borderRadius: '8px', backgroundColor: '#fff' }}
                   />
                   <button
@@ -5025,76 +5383,76 @@ export default function Dashboard() {
                     </select>
                   </div>
 
-                   <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                     <div>
-                       <label>🥇 First Place Winner Name *</label>
-                       <input
-                         type="text"
-                         value={resultForm.firstPlaceName}
-                         onChange={(e) => setResultForm({ ...resultForm, firstPlaceName: e.target.value })}
-                         className="dash-input"
-                         placeholder="Student full name"
-                         required
-                       />
-                     </div>
-                     <div>
-                       <label>First Place Email *</label>
-                       <input
-                         type="email"
-                         value={resultForm.firstPlaceEmail}
-                         onChange={(e) => setResultForm({ ...resultForm, firstPlaceEmail: e.target.value })}
-                         className="dash-input"
-                         placeholder="student@gmail.com"
-                         required
-                       />
-                     </div>
-                   </div>
+                  <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label>🥇 First Place Winner Name *</label>
+                      <input
+                        type="text"
+                        value={resultForm.firstPlaceName}
+                        onChange={(e) => setResultForm({ ...resultForm, firstPlaceName: e.target.value })}
+                        className="dash-input"
+                        placeholder="Student full name"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label>First Place Email *</label>
+                      <input
+                        type="email"
+                        value={resultForm.firstPlaceEmail}
+                        onChange={(e) => setResultForm({ ...resultForm, firstPlaceEmail: e.target.value })}
+                        className="dash-input"
+                        placeholder="student@gmail.com"
+                        required
+                      />
+                    </div>
+                  </div>
 
-                   <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                     <div>
-                       <label>🥈 Second Place Winner Name</label>
-                       <input
-                         type="text"
-                         value={resultForm.secondPlaceName}
-                         onChange={(e) => setResultForm({ ...resultForm, secondPlaceName: e.target.value })}
-                         className="dash-input"
-                         placeholder="Student full name"
-                       />
-                     </div>
-                     <div>
-                       <label>Second Place Email</label>
-                       <input
-                         type="email"
-                         value={resultForm.secondPlaceEmail}
-                         onChange={(e) => setResultForm({ ...resultForm, secondPlaceEmail: e.target.value })}
-                         className="dash-input"
-                         placeholder="student@gmail.com"
-                       />
-                     </div>
-                   </div>
+                  <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label>🥈 Second Place Winner Name</label>
+                      <input
+                        type="text"
+                        value={resultForm.secondPlaceName}
+                        onChange={(e) => setResultForm({ ...resultForm, secondPlaceName: e.target.value })}
+                        className="dash-input"
+                        placeholder="Student full name"
+                      />
+                    </div>
+                    <div>
+                      <label>Second Place Email</label>
+                      <input
+                        type="email"
+                        value={resultForm.secondPlaceEmail}
+                        onChange={(e) => setResultForm({ ...resultForm, secondPlaceEmail: e.target.value })}
+                        className="dash-input"
+                        placeholder="student@gmail.com"
+                      />
+                    </div>
+                  </div>
 
-                   <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                     <div>
-                       <label>🥉 Third Place Winner Name</label>
-                       <input
-                         type="text"
-                         value={resultForm.thirdPlaceName}
-                         onChange={(e) => setResultForm({ ...resultForm, thirdPlaceName: e.target.value })}
-                         className="dash-input"
-                         placeholder="Student full name"
-                       />
-                     </div>
-                     <div>
-                       <label>Third Place Email</label>
-                       <input
-                         type="email"
-                         value={resultForm.thirdPlaceEmail}
-                         onChange={(e) => setResultForm({ ...resultForm, thirdPlaceEmail: e.target.value })}
-                         className="dash-input"
-                         placeholder="student@gmail.com"
-                       />
-                     </div>
-                   </div>
+                  <div className="dash-form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label>🥉 Third Place Winner Name</label>
+                      <input
+                        type="text"
+                        value={resultForm.thirdPlaceName}
+                        onChange={(e) => setResultForm({ ...resultForm, thirdPlaceName: e.target.value })}
+                        className="dash-input"
+                        placeholder="Student full name"
+                      />
+                    </div>
+                    <div>
+                      <label>Third Place Email</label>
+                      <input
+                        type="email"
+                        value={resultForm.thirdPlaceEmail}
+                        onChange={(e) => setResultForm({ ...resultForm, thirdPlaceEmail: e.target.value })}
+                        className="dash-input"
+                        placeholder="student@gmail.com"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
@@ -5123,25 +5481,25 @@ export default function Dashboard() {
                 Please check the UPI transaction screenshot from <strong>{selectedScreenshotReg.studentName}</strong>:
               </p>
               <div style={{ borderRadius: '8px', border: '1px solid var(--dash-border)', padding: '10px', background: '#000', display: 'inline-block' }}>
-                <img 
-                  src={selectedScreenshotReg.paymentScreenshot} 
-                  alt="UPI Slip Receipt" 
-                  style={{ maxWidth: '100%', maxHeight: '400px', display: 'block', borderRadius: '4px' }} 
+                <img
+                  src={selectedScreenshotReg.paymentScreenshot}
+                  alt="UPI Slip Receipt"
+                  style={{ maxWidth: '100%', maxHeight: '400px', display: 'block', borderRadius: '4px' }}
                 />
               </div>
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button 
-                type="button" 
-                className="dash-btn dash-btn-secondary" 
+              <button
+                type="button"
+                className="dash-btn dash-btn-secondary"
                 onClick={() => setSelectedScreenshotReg(null)}
               >
                 Cancel
               </button>
               {selectedScreenshotReg.status === 'Pending' && (
-                <button 
-                  type="button" 
-                  className="dash-btn dash-btn-primary" 
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-primary"
                   onClick={() => {
                     handleUpdateRegistrationStatus(selectedScreenshotReg.id, 'Registered');
                     setSelectedScreenshotReg(null);
@@ -5150,6 +5508,31 @@ export default function Dashboard() {
                   Verify & Approve
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* G. Admin Student Details Modal */}
+      {selectedStudentDetail && (
+        <div className="modal-overlay" onClick={() => setSelectedStudentDetail(null)}>
+          <div className="modal-content" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Student Profile Details</h3>
+              <button type="button" className="modal-close-btn" onClick={() => setSelectedStudentDetail(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ color: 'var(--dash-text)', fontSize: '14px', lineHeight: '1.8' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '10px 0' }}>
+                <div><strong>Full Name:</strong> {selectedStudentDetail.studentName}</div>
+                <div><strong>Registration Number:</strong> {selectedStudentDetail.studentReg}</div>
+                <div><strong>Email Address:</strong> {selectedStudentDetail.studentEmail}</div>
+                <div><strong>Department / Year:</strong> {selectedStudentDetail.studentDept}</div>
+                <div><strong>Mobile Number:</strong> {selectedStudentDetail.studentMobile}</div>
+                <div><strong>College Name:</strong> {selectedStudentDetail.collegeName}</div>
+                <div><strong>Team Details:</strong> {selectedStudentDetail.teamDetails}</div>
+                <div><strong>Ticket ID:</strong> {selectedStudentDetail.ticketId}</div>
+                <div><strong>Registration Status:</strong> {selectedStudentDetail.status}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -5300,14 +5683,14 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button 
-                className="dash-btn dash-btn-secondary" 
+              <button
+                className="dash-btn dash-btn-secondary"
                 onClick={() => setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null })}
               >
                 Cancel
               </button>
-              <button 
-                className="dash-btn" 
+              <button
+                className="dash-btn"
                 style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none' }}
                 onClick={confirmDialog.onConfirm}
               >

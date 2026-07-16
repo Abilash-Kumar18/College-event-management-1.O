@@ -495,9 +495,6 @@ export default function Profile() {
   const sidebarTabs = [
     { id: 'Overview', label: 'My Profile', icon: '👤' },
     { id: 'Calendar', label: 'Event Calendar', icon: '📅' },
-    ...(!isFacultyOrOrg ? [
-      { id: 'Registered', label: 'Registered Events', icon: '📝' }
-    ] : []),
     { id: 'Inbox', label: 'Inbox', icon: '📥' }
   ];
 
@@ -715,64 +712,7 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Registered Events Tab */}
-        {activeTab === 'Registered' && (
-          <div className="tab-content saved-liked-registered-content">
-            <div className="stats-section-header">
-              <h3>📝 REGISTERED EVENTS</h3>
-            </div>
-            <div className="dash-table-container" style={{ marginTop: '20px' }}>
-              <table className="dash-table">
-                <thead>
-                  <tr>
-                    <th>Event Title</th>
-                    <th>Date & Time</th>
-                    <th>Registration Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {registrations.map((reg) => {
-                    const event = events.find(e => e._id === reg.eventId);
-                    return (
-                      <tr key={reg.id}>
-                        <td
-                          style={{ fontWeight: 'bold', color: 'var(--brand-green-light)', cursor: 'pointer' }}
-                          onClick={() => {
-                            if (event) {
-                              setSelectedEvent(event);
-                              setIsEventDetailModalOpen(true);
-                            }
-                          }}
-                        >
-                          {reg.eventTitle}
-                        </td>
-                        <td>
-                          {event ? formatEventDateRange(event) : 'N/A'}
-                        </td>
-                        <td>{new Date(reg.date).toLocaleDateString()}</td>
-                        <td>
-                          <span className={`badge ${reg.status === 'Approved' || reg.status === 'Registered' || reg.status === 'Checked-in' ? 'badge-success' :
-                              reg.status === 'Rejected' || reg.status === 'Cancelled' ? 'badge-danger' : 'badge-warning'
-                            }`}>
-                            {reg.status === 'Approved' || reg.status === 'Registered' ? 'Registration Completed' : reg.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {registrations.length === 0 && (
-                    <tr>
-                      <td colSpan="4" style={{ textAlign: 'center', padding: '30px', color: 'var(--dash-text-muted)' }}>
-                        You have not registered for any events yet.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+
 
         {/* Inbox Tab Content */}
         {activeTab === 'Inbox' && (
@@ -816,7 +756,6 @@ export default function Profile() {
                     } else {
                       e.target.setCustomValidity("");
                     }
-                    e.target.reportValidity();
                   }}
                   required 
                 />
@@ -840,7 +779,6 @@ export default function Profile() {
                     } else {
                       e.target.setCustomValidity("");
                     }
-                    e.target.reportValidity();
                   }}
                 />
               </div>
@@ -884,7 +822,6 @@ export default function Profile() {
                     } else {
                       e.target.setCustomValidity("");
                     }
-                    e.target.reportValidity();
                   }}
                 />
               </div>
@@ -903,7 +840,6 @@ export default function Profile() {
                     } else {
                       e.target.setCustomValidity("");
                     }
-                    e.target.reportValidity();
                   }}
                 />
               </div>
@@ -922,7 +858,6 @@ export default function Profile() {
                     } else {
                       e.target.setCustomValidity("");
                     }
-                    e.target.reportValidity();
                   }}
                 />
               </div>
@@ -979,7 +914,6 @@ export default function Profile() {
                     } else {
                       e.target.setCustomValidity("");
                     }
-                    e.target.reportValidity();
                   }}
                   required 
                 />
@@ -1000,7 +934,6 @@ export default function Profile() {
                     } else {
                       e.target.setCustomValidity("");
                     }
-                    e.target.reportValidity();
                   }}
                   required 
                 />

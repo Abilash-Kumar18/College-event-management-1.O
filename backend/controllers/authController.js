@@ -320,7 +320,12 @@ const loginUser = async (req, res, next) => {
     }
 
     // 2. Match timing logic: Use a dummy comparison if user is not found to prevent user enumeration
-    const user = await User.findOne({ email, role });
+    let user;
+    if (role === 'admin') {
+      user = await User.findOne({ email, role: { $in: ['admin', 'faculty'] } });
+    } else {
+      user = await User.findOne({ email, role });
+    }
     const dummyHash = '$2b$10$abcdefghijklmnopqrstuvwxyza12345678901234567890123456789';
 
     if (!user) {
@@ -335,12 +340,6 @@ const loginUser = async (req, res, next) => {
     if (!isMatch) {
       res.status(401);
       throw new Error('Invalid email, password, or role');
-    }
-
-    // 3. Organizer Approval Check
-    if (role === 'organizer' && !user.isApproved) {
-      res.status(403);
-      throw new Error('Approval pending from faculty');
     }
 
     res.json({
@@ -700,11 +699,12 @@ const googleLogin = async (req, res, next) => {
         name,
         // Create a random secure password for Google logins
         password: Math.random().toString(36).slice(-8) + Math.random().toString(36).toUpperCase().slice(-8),
-        isApproved: role === 'organizer' ? false : true, // organizers must be approved
+        isApproved: true,
       });
     } else {
-      // Verify role matches
-      if (user.role !== role) {
+      // Verify role matches (allow 'faculty' when requesting 'admin' login)
+      const isRoleMatched = (user.role === role) || (role === 'admin' && user.role === 'faculty');
+      if (!isRoleMatched) {
         res.status(400);
         throw new Error(`Account already exists with a different role: ${user.role}`);
       }

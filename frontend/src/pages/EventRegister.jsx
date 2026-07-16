@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { authService, eventService } from '../services/api';
+import { authService, eventService, studentService } from '../services/api';
 import './EventRegister.css';
 
 const DEPARTMENTS = [
@@ -77,6 +77,27 @@ export default function EventRegister() {
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [alreadyRegistered, setAlreadyRegistered] = useState(null);
+  const [teamMembers, setTeamMembers] = useState([
+    { name: '', regNo: '', dept: '', phone: '' }
+  ]);
+
+  const handleAddMember = () => {
+    setTeamMembers(prev => [...prev, { name: '', regNo: '', dept: '', phone: '' }]);
+  };
+
+  const handleRemoveMember = (idx) => {
+    setTeamMembers(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleMemberChange = (idx, field, value) => {
+    setTeamMembers(prev => prev.map((member, i) => {
+      if (i === idx) {
+        return { ...member, [field]: value };
+      }
+      return member;
+    }));
+  };
 
   // Form fields
   const [form, setForm] = useState({
@@ -112,14 +133,40 @@ export default function EventRegister() {
       navigate('/login');
       return;
     }
+    let parsed;
     try {
-      const parsed = JSON.parse(storedUser);
+      parsed = JSON.parse(storedUser);
+      if (parsed.role !== 'student') {
+        setError('Only students are authorized to register for events.');
+        setLoading(false);
+        return;
+      }
       setUser(parsed);
+
+      // Parse department and year from deptYear
+      let parsedDept = '';
+      let parsedYear = '';
+      if (parsed.deptYear) {
+        const parts = parsed.deptYear.split(' - ');
+        if (parts.length > 0) parsedDept = parts[0].trim();
+        if (parts.length > 1) {
+          const yr = parts[1].trim();
+          if (yr.startsWith('I Year') || yr === 'I') parsedYear = '1st Year';
+          else if (yr.startsWith('II Year') || yr === 'II') parsedYear = '2nd Year';
+          else if (yr.startsWith('III Year') || yr === 'III') parsedYear = '3rd Year';
+          else if (yr.startsWith('IV Year') || yr === 'IV') parsedYear = '4th Year';
+          else parsedYear = yr;
+        }
+      }
+
       setForm(prev => ({
         ...prev,
         fullName: parsed.name || '',
         email: parsed.email || '',
-        regNo: parsed.regNo || ''
+        regNo: parsed.regNo || '',
+        phone: parsed.mobileNumber ? parsed.mobileNumber.replace(/^\+91/, '') : '',
+        department: parsedDept,
+        year: parsedYear
       }));
     } catch {
       navigate('/login');
@@ -138,6 +185,25 @@ export default function EventRegister() {
         const found = await eventService.getById(eventId);
         if (found) {
           setEvent(found);
+          
+          // Check if already registered
+          try {
+            const studentRegs = await studentService.getRegistrations();
+            const existingReg = studentRegs.find(r => String(r.eventId?._id || r.eventId) === String(eventId));
+            if (existingReg) {
+              setAlreadyRegistered(existingReg);
+            }
+          } catch (regErr) {
+            console.warn('Failed to load registrations from backend, checking localStorage.', regErr);
+            const storedAllRegs = localStorage.getItem('dash_global_registrations');
+            if (storedAllRegs) {
+              const allRegs = JSON.parse(storedAllRegs);
+              const existingRegLocal = allRegs.find(r => String(r.eventId) === String(eventId) && String(r.studentId) === String(parsed._id));
+              if (existingRegLocal) {
+                setAlreadyRegistered(existingRegLocal);
+              }
+            }
+          }
         } else {
           throw new Error('Not found on backend');
         }
@@ -159,6 +225,15 @@ export default function EventRegister() {
 
         if (foundLocal) {
           setEvent(foundLocal);
+          // Check locally registered events
+          const userRegKey = `dash_registered_${parsed._id}`;
+          const storedUserRegs = localStorage.getItem(userRegKey);
+          if (storedUserRegs) {
+            const regIds = JSON.parse(storedUserRegs);
+            if (regIds.includes(eventId)) {
+              setAlreadyRegistered({ status: 'Registered' });
+            }
+          }
         } else {
           setError('Event not found.');
         }
@@ -209,10 +284,40 @@ export default function EventRegister() {
       return;
     }
 
+    let teamDetailsStr = '';
+    if (event && event.registrationType === 'team') {
+      const filledMembers = teamMembers.filter(m => m.name.trim() !== '');
+      if (filledMembers.length === 0) {
+        setError('Please fill in at least one team member detail.');
+        return;
+      }
+      // Check validations for all filled members
+      for (let i = 0; i < filledMembers.length; i++) {
+        const m = filledMembers[i];
+        if (!m.name || !m.regNo || !m.dept || !m.phone) {
+          setError(`Please fill in all details for Team Member ${i + 1}.`);
+          return;
+        }
+        if (!/^[a-zA-Z\s]+$/.test(m.name)) {
+          setError(`Team Member ${i + 1} name must contain only letters and spaces.`);
+          return;
+        }
+        if (!/^\d+$/.test(m.regNo)) {
+          setError(`Team Member ${i + 1} registration number must contain only numbers.`);
+          return;
+        }
+        if (!/^\d{10}$/.test(m.phone)) {
+          setError(`Team Member ${i + 1} phone number must be exactly 10 digits.`);
+          return;
+        }
+      }
+      teamDetailsStr = filledMembers.map((m, idx) => `Member ${idx + 1}: ${m.name} (${m.regNo}, ${m.dept}, ${m.phone})`).join('\n');
+    }
+
     try {
       const createdReg = await eventService.register(event._id, {
         collegeName: form.collegeName,
-        teamDetails: form.teamDetails,
+        teamDetails: teamDetailsStr || undefined,
         paymentScreenshot: form.paymentScreenshot
       });
 
@@ -231,7 +336,8 @@ export default function EventRegister() {
         reason: form.reason,
         date: new Date().toISOString(),
         status: createdReg?.status || 'Pending',
-        checkedIn: false
+        checkedIn: false,
+        teamDetails: teamDetailsStr || undefined
       };
 
       // Update global registrations
@@ -373,21 +479,21 @@ export default function EventRegister() {
                   <span className="er-detail-icon">📅</span>
                   <div>
                     <label>Date & Time</label>
-                    <span>{formatDate(event.date)}</span>
+                    <span>{formatDate(event.date || event.dateTime)}</span>
                   </div>
                 </div>
                 <div className="er-detail-item">
                   <span className="er-detail-icon">📍</span>
                   <div>
                     <label>Location</label>
-                    <span>{event.location}</span>
+                    <span>{event.location || event.venue || 'Main Campus'}</span>
                   </div>
                 </div>
                 <div className="er-detail-item">
                   <span className="er-detail-icon">👥</span>
                   <div>
                     <label>Capacity</label>
-                    <span>{event.capacity} seats</span>
+                    <span>{event.capacity || event.maxParticipants || 'N/A'} seats</span>
                   </div>
                 </div>
                 {event.organizer && (
@@ -403,125 +509,216 @@ export default function EventRegister() {
             </div>
           </div>
 
-          {/* Right: Registration Form */}
+          {/* Right: Registration Form or Registration Status */}
           <div className="er-form-card">
-            <h2 className="er-form-title">📝 Registration Form</h2>
-            <p className="er-form-subtitle">Fill in your details to register for this event</p>
-
-            {error && <div className="er-form-error">{error}</div>}
-
-            <form onSubmit={handleSubmit} className="er-form">
-              <div className="er-form-row">
-                <div className="er-form-group">
-                  <label>Full Name <span className="required">*</span></label>
-                  <input type="text" name="fullName" value={form.fullName} onChange={handleChange} placeholder="Enter your full name" required />
+            {alreadyRegistered ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>ℹ️</div>
+                <h2 style={{ marginBottom: '12px' }}>Already Registered</h2>
+                <p style={{ color: 'var(--dash-text-muted)', marginBottom: '24px', fontSize: '15px' }}>
+                  You have already registered for this event.
+                </p>
+                <div style={{
+                  display: 'inline-block',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  background: alreadyRegistered.status === 'Registered' || alreadyRegistered.status === 'Checked-in' || alreadyRegistered.status === 'Approved' ? '#e8f5e9' : '#fffdeb',
+                  border: alreadyRegistered.status === 'Registered' || alreadyRegistered.status === 'Checked-in' || alreadyRegistered.status === 'Approved' ? '1.5px solid #2e7d32' : '1.5px solid #b45309',
+                  color: alreadyRegistered.status === 'Registered' || alreadyRegistered.status === 'Checked-in' || alreadyRegistered.status === 'Approved' ? '#2e7d32' : '#b45309',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  Registration Status: {alreadyRegistered.status}
                 </div>
-                <div className="er-form-group">
-                  <label>Email Address <span className="required">*</span></label>
-                  <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="you@example.com" required />
-                </div>
-              </div>
-
-              <div className="er-form-row">
-                <div className="er-form-group">
-                  <label>Phone Number <span className="required">*</span></label>
-                  <input type="tel" name="phone" value={form.phone} onChange={handleChange} placeholder="e.g. 9876543210" required pattern="\d{10}" maxLength="10" title="Phone number must be exactly 10 digits" />
-                </div>
-                <div className="er-form-group">
-                  <label>Registration Number <span className="required">*</span></label>
-                  <input type="text" name="regNo" value={form.regNo} onChange={handleChange} placeholder="e.g. 2112001" required pattern="\d+" title="Registration number must contain only numbers" />
-                </div>
-              </div>
-
-              <div className="er-form-row">
-                <div className="er-form-group">
-                  <label>Department <span className="required">*</span></label>
-                  <select name="department" value={form.department} onChange={handleChange} required>
-                    <option value="">Select Department</option>
-                    {DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="er-form-group">
-                  <label>Year of Study <span className="required">*</span></label>
-                  <select name="year" value={form.year} onChange={handleChange} required>
-                    <option value="">Select Year</option>
-                    <option value="1st Year">1st Year</option>
-                    <option value="2nd Year">2nd Year</option>
-                    <option value="3rd Year">3rd Year</option>
-                    <option value="4th Year">4th Year</option>
-                  </select>
+                <div style={{ marginTop: '30px' }}>
+                  <button onClick={() => navigate('/dashboard?tab=registrations')} className="er-btn er-btn-primary">
+                    View My Registrations
+                  </button>
                 </div>
               </div>
+            ) : (
+              <>
+                <h2 className="er-form-title">📝 Registration Form</h2>
+                <p className="er-form-subtitle">Fill in your details to register for this event</p>
 
-              <div className="er-form-group">
-                <label>College Name <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  name="collegeName" 
-                  value={form.collegeName} 
-                  onChange={handleChange} 
-                  placeholder="Enter your college name" 
-                  required 
-                />
-              </div>
+                {error && <div className="er-form-error">{error}</div>}
 
-              {event && event.registrationType === 'team' && (
-                <div className="er-form-group full-width">
-                  <label>Team Details (Student Names, Reg. Numbers, Department) <span className="required">*</span></label>
-                  <textarea 
-                    name="teamDetails" 
-                    value={form.teamDetails} 
-                    onChange={handleChange} 
-                    placeholder="Enter details of your team members..." 
-                    rows="3"
-                    required
-                  ></textarea>
-                </div>
-              )}
+                <form onSubmit={handleSubmit} className="er-form">
+                  <div className="er-form-row">
+                    <div className="er-form-group">
+                      <label>Full Name <span className="required">*</span></label>
+                      <input type="text" name="fullName" value={form.fullName} onChange={handleChange} placeholder="Enter your full name" required />
+                    </div>
+                    <div className="er-form-group">
+                      <label>Email Address <span className="required">*</span></label>
+                      <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="you@example.com" required />
+                    </div>
+                  </div>
 
-              {event && event.priceType === 'paid' && (
-                <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #cbd5e1', marginTop: '16px', marginBottom: '16px', color: '#1e293b' }}>
-                  <h4 style={{ margin: '0 0 8px 0', color: '#166534', fontWeight: 'bold' }}>💳 Paid Event Registration</h4>
-                  <p style={{ fontSize: '13px', margin: '0 0 12px 0' }}>
-                    This event is paid. Please pay using UPI to the organizer's UPI number: <strong>{event.upiNumber || '9876543210'}</strong>
-                  </p>
+                  <div className="er-form-row">
+                    <div className="er-form-group">
+                      <label>Phone Number <span className="required">*</span></label>
+                      <input type="tel" name="phone" value={form.phone} onChange={handleChange} placeholder="e.g. 9876543210" required pattern="\d{10}" maxLength="10" title="Phone number must be exactly 10 digits" />
+                    </div>
+                    <div className="er-form-group">
+                      <label>Registration Number <span className="required">*</span></label>
+                      <input type="text" name="regNo" value={form.regNo} onChange={handleChange} placeholder="e.g. 2112001" required pattern="\d+" title="Registration number must contain only numbers" />
+                    </div>
+                  </div>
+
+                  <div className="er-form-row">
+                    <div className="er-form-group">
+                      <label>Department <span className="required">*</span></label>
+                      <select name="department" value={form.department} onChange={handleChange} required>
+                        <option value="">Select Department</option>
+                        {DEPARTMENTS.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="er-form-group">
+                      <label>Year of Study <span className="required">*</span></label>
+                      <select name="year" value={form.year} onChange={handleChange} required>
+                        <option value="">Select Year</option>
+                        <option value="1st Year">1st Year</option>
+                        <option value="2nd Year">2nd Year</option>
+                        <option value="3rd Year">3rd Year</option>
+                        <option value="4th Year">4th Year</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="er-form-group">
-                    <label>Upload Payment Screenshot <span className="required">*</span></label>
+                    <label>College Name <span className="required">*</span></label>
                     <input 
-                      type="file" 
-                      accept="image/*" 
-                      onChange={handleScreenshotChange} 
+                      type="text" 
+                      name="collegeName" 
+                      value={form.collegeName} 
+                      onChange={handleChange} 
+                      placeholder="Enter your college name" 
                       required 
                     />
-                    {form.paymentScreenshot && (
-                      <div style={{ marginTop: '10px' }}>
-                        <img 
-                          src={form.paymentScreenshot} 
-                          alt="Screenshot Preview" 
-                          style={{ maxWidth: '120px', maxHeight: '120px', borderRadius: '6px', border: '1px solid #ccc' }} 
-                        />
-                      </div>
-                    )}
                   </div>
-                </div>
-              )}
 
-              <div className="er-form-group full-width">
-                <label>Why do you want to participate? <span className="optional">(Optional)</span></label>
-                <textarea name="reason" value={form.reason} onChange={handleChange} placeholder="Tell us why you're interested in this event..." rows="3"></textarea>
-              </div>
+                  {event && event.registrationType === 'team' && (
+                    <div style={{ marginTop: '20px', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '16px', backgroundColor: '#f8fafc', width: '100%', boxSizing: 'border-box' }} className="full-width">
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#1e293b', fontWeight: 'bold' }}>Team Members Details</h4>
+                      {teamMembers.map((member, idx) => (
+                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'center', marginBottom: '12px' }}>
+                          <input
+                            type="text"
+                            value={member.name}
+                            onChange={(e) => handleMemberChange(idx, 'name', e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
+                            placeholder="Member Name"
+                            className="er-input"
+                            style={{ padding: '8px 12px', height: '42px', boxSizing: 'border-box' }}
+                            pattern="^[a-zA-Z\s]+$"
+                            title="Name must contain only letters and spaces"
+                            required={idx === 0}
+                          />
+                          <input
+                            type="text"
+                            value={member.regNo}
+                            onChange={(e) => handleMemberChange(idx, 'regNo', e.target.value.replace(/\D/g, ''))}
+                            placeholder="Reg No"
+                            className="er-input"
+                            style={{ padding: '8px 12px', height: '42px', boxSizing: 'border-box' }}
+                            pattern="^\d+$"
+                            title="Registration number must contain only numbers"
+                            required={idx === 0}
+                          />
+                          <select
+                            value={member.dept}
+                            onChange={(e) => handleMemberChange(idx, 'dept', e.target.value)}
+                            className="er-select"
+                            style={{ padding: '8px 12px', height: '42px', boxSizing: 'border-box', background: '#fff', border: '1px solid #ccc', borderRadius: '6px', width: '100%' }}
+                            required={idx === 0}
+                          >
+                            <option value="">-- Dept --</option>
+                            {DEPARTMENTS.map((dept) => (
+                              <option key={dept} value={dept}>{dept}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            value={member.phone}
+                            onChange={(e) => handleMemberChange(idx, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                            placeholder="Phone Number"
+                            className="er-input"
+                            style={{ padding: '8px 12px', height: '42px', boxSizing: 'border-box' }}
+                            pattern="^\d{10}$"
+                            maxLength="10"
+                            title="Phone number must be exactly 10 digits"
+                            required={idx === 0}
+                          />
+                          {teamMembers.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMember(idx)}
+                              className="er-btn"
+                              style={{ padding: '8px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '42px', width: '42px' }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={handleAddMember}
+                        className="er-btn"
+                        style={{ padding: '8px 14px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+                      >
+                        + Add Member
+                      </button>
+                    </div>
+                  )}
 
-              <div className="er-form-checkbox">
-                <input type="checkbox" id="agreeTerms" name="agreeTerms" checked={form.agreeTerms} onChange={handleChange} />
-                <label htmlFor="agreeTerms">I agree to the event <strong>terms and conditions</strong> and confirm all the details are correct.</label>
-              </div>
+                  {event && event.priceType === 'paid' && (
+                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #cbd5e1', marginTop: '16px', marginBottom: '16px', color: '#1e293b' }}>
+                      <h4 style={{ margin: '0 0 8px 0', color: '#166534', fontWeight: 'bold' }}>💳 Paid Event Registration</h4>
+                      <p style={{ fontSize: '13px', margin: '0 0 12px 0' }}>
+                        This event is paid. Please pay using UPI to the organizer's UPI number: <strong>{event.upiNumber || '9876543210'}</strong>
+                      </p>
+                      <div className="er-form-group">
+                        <label>Upload Payment Screenshot <span className="required">*</span></label>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleScreenshotChange} 
+                          required 
+                        />
+                        {form.paymentScreenshot && (
+                          <div style={{ marginTop: '10px' }}>
+                            <img 
+                              src={form.paymentScreenshot} 
+                              alt="Screenshot Preview" 
+                              style={{ maxWidth: '120px', maxHeight: '120px', borderRadius: '6px', border: '1px solid #ccc' }} 
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-              <button type="submit" className="er-btn er-btn-primary er-submit-btn">
-                Submit Registration
-              </button>
-            </form>
+                  <div className="er-form-group full-width">
+                    <label>Why do you want to participate? <span className="optional">(Optional)</span></label>
+                    <textarea name="reason" value={form.reason} onChange={handleChange} placeholder="Tell us why you're interested in this event..." rows="3"></textarea>
+                  </div>
+
+                  <div className="er-form-checkbox">
+                    <input type="checkbox" id="agreeTerms" name="agreeTerms" checked={form.agreeTerms} onChange={handleChange} />
+                    <label htmlFor="agreeTerms">I agree to the event <strong>terms and conditions</strong> and confirm all the details are correct.</label>
+                  </div>
+
+                  <button type="submit" className="er-btn er-btn-primary er-submit-btn">
+                    Submit Registration
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>

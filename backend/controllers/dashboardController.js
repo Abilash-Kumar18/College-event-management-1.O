@@ -8,8 +8,8 @@ const getStats = async (req, res, next) => {
   try {
     let eventQuery = {};
     
-    // If the logged-in user is an organizer, they should only see their own stats
-    if (req.user.role === 'organizer') {
+    // If the logged-in user is a faculty member, they should only see their own stats. Admins see all.
+    if (req.user.role === 'faculty') {
       eventQuery.createdBy = req.user._id;
     }
 
@@ -17,9 +17,9 @@ const getStats = async (req, res, next) => {
     const pendingApprovals = await Event.countDocuments({ ...eventQuery, status: 'Pending' });
 
     let registrationQuery = {};
-    if (req.user.role === 'organizer') {
-      const organizerEvents = await Event.find({ createdBy: req.user._id }).select('_id');
-      const eventIds = organizerEvents.map(e => e._id);
+    if (req.user.role === 'faculty') {
+      const facultyEvents = await Event.find({ createdBy: req.user._id }).select('_id');
+      const eventIds = facultyEvents.map(e => e._id);
       registrationQuery.eventId = { $in: eventIds };
     }
 

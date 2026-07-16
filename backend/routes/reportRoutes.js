@@ -4,6 +4,6 @@ const { getSummary } = require('../controllers/reportController');
 const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
 // GET /api/reports/summary
-router.get('/summary', protect, authorizeRoles('organizer', 'faculty', 'admin'), getSummary);
+router.get('/summary', protect, authorizeRoles('faculty', 'admin'), getSummary);
 
 module.exports = router;

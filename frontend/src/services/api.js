@@ -216,6 +216,8 @@ export const facultyService = {
     }),
   getRegistrations: (eventId) =>
     apiRequest(`/faculty/events/${eventId}/registrations`),
+  getAllRegistrations: () =>
+    apiRequest('/faculty/registrations'),
   scanQR: (qrCodeId) =>
     apiRequest('/faculty/attendance/scan', {
       method: 'POST',
@@ -283,9 +285,9 @@ export const announcementService = {
 // Registration Service  →  /api/registrations/*
 // ──────────────────────────────────────────────────────────────────────────────
 export const registrationService = {
-  updateStatus: (id, status, points) =>
+  updateStatus: (id, status, points, certificateApproved) =>
     apiRequest(`/registrations/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ status, points }),
+      body: JSON.stringify({ status, points, certificateApproved }),
     }),
 };
