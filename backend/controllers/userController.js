@@ -15,8 +15,6 @@ const getUsers = async (req, res, next) => {
         query.role = 'student';
       } else if (roleLower === 'staff' || roleLower === 'faculty') {
         query.role = 'faculty';
-      } else if (roleLower === 'clubs' || roleLower === 'organizer') {
-        query.role = 'organizer';
       } else if (roleLower === 'admin') {
         query.role = 'admin';
       } else {

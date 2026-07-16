@@ -220,7 +220,6 @@ export default function StudentSignUp() {
               } else {
                 e.target.setCustomValidity("");
               }
-              e.target.reportValidity();
             }}
             className="signup-input"
             placeholder="Enter your name"
@@ -245,7 +244,6 @@ export default function StudentSignUp() {
               } else {
                 e.target.setCustomValidity("");
               }
-              e.target.reportValidity();
             }}
             className="signup-input"
             placeholder="Enter registration number"
@@ -302,7 +300,6 @@ export default function StudentSignUp() {
               } else {
                 e.target.setCustomValidity("");
               }
-              e.target.reportValidity();
             }}
             className="signup-input"
             placeholder="Enter email address"
@@ -340,7 +337,6 @@ export default function StudentSignUp() {
                 } else {
                   e.target.setCustomValidity("");
                 }
-                e.target.reportValidity();
               }}
               className="signup-input"
               placeholder="Enter 10-digit number"
@@ -370,7 +366,6 @@ export default function StudentSignUp() {
                 } else {
                   e.target.setCustomValidity("");
                 }
-                e.target.reportValidity();
               }}
               className="signup-input"
               placeholder="Enter password"
@@ -406,7 +401,6 @@ export default function StudentSignUp() {
                 } else {
                   e.target.setCustomValidity("");
                 }
-                e.target.reportValidity();
               }}
               className="signup-input"
               placeholder="Confirm password"

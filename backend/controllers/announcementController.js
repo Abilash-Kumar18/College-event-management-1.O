@@ -34,13 +34,7 @@ const getAnnouncements = async (req, res, next) => {
     let query = {};
     
     // Filter announcements based on user role to show only relevant ones
-    if (req.user.role === 'student') {
-      query.audience = { $in: ['student', 'all'] };
-    } else if (req.user.role === 'organizer') {
-      query.audience = { $in: ['organizer', 'all'] };
-    } else if (req.user.role === 'faculty') {
-      query.audience = { $in: ['faculty', 'all'] };
-    }
+    query.audience = { $in: [req.user.role, 'all'] };
 
     const announcements = await Announcement.find(query).sort({ sentAt: -1 });
     res.status(200).json(announcements);

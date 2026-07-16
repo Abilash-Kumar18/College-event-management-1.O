@@ -10,8 +10,8 @@ const getSummary = async (req, res, next) => {
   try {
     let eventQuery = {};
 
-    // If organizer, restrict to their own events
-    if (req.user.role === 'organizer') {
+    // If faculty, restrict to their own events. Admins see all.
+    if (req.user.role === 'faculty') {
       eventQuery.createdBy = req.user._id;
     }
 

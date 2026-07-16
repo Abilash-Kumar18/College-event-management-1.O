@@ -14,8 +14,7 @@ export default function Login() {
     try {
       const roleMap = {
         Student: "student",
-        Faculty: "faculty",
-        Organizer: "organizer",
+        Admin: "admin",
       };
 
       const res = await authService.googleLogin({
@@ -117,8 +116,10 @@ export default function Login() {
     const urlRole = queryParams.get("role");
     if (urlRole) {
       const capitalized = urlRole.charAt(0).toUpperCase() + urlRole.slice(1).toLowerCase();
-      if (["Student", "Faculty", "Organizer"].includes(capitalized)) {
+      if (["Student", "Admin"].includes(capitalized)) {
         setRole(capitalized);
+      } else if (capitalized === "Faculty" || capitalized === "Organizer") {
+        setRole("Admin");
       }
     } else {
       setRole("Student");
@@ -146,8 +147,7 @@ export default function Login() {
     try {
       const roleMap = {
         Student: "student",
-        Faculty: "faculty",
-        Organizer: "organizer",
+        Admin: "admin",
       };
 
       const response = await authService.login({
@@ -211,12 +211,12 @@ export default function Login() {
           </button>
         </div>
         <h1 className="login-title" style={{ fontSize: "22px", fontWeight: "800", marginTop: "5px", color: "var(--ace-primary, #10b981)", textAlign: "center", letterSpacing: "0.5px" }}>
-          {role === "Student" ? "Login" : role === "Faculty" ? "Faculty Sign In" : "Organizer Login"}
+          {role === "Student" ? "Login" : "Admin / Faculty Login"}
         </h1>
 
         {/* Role Toggles */}
         <div className="role-toggle-container">
-          {["Student", "Faculty", "Organizer"].map((item) => (
+          {["Student", "Admin"].map((item) => (
             <button
               key={item}
               type="button"
@@ -319,7 +319,7 @@ export default function Login() {
 
 
 
-        {role !== "Faculty" && (
+        {role === "Student" && (
           <p className="signup-redirect-text">
             If you don't have account
             <Link to="/signup" className="signup-redirect-link">Sign Up</Link>

@@ -105,6 +105,16 @@ jest.mock('../models/Certificate', () => {
   return MockCertificateModel;
 });
 
+jest.mock('../models/Attendance', () => {
+  const MockAttendanceModel = jest.fn().mockImplementation((data) => ({
+    ...data,
+    save: jest.fn().mockResolvedValue(true)
+  }));
+  MockAttendanceModel.findOne = jest.fn().mockResolvedValue(null);
+  MockAttendanceModel.findOneAndUpdate = jest.fn().mockResolvedValue(null);
+  return MockAttendanceModel;
+});
+
 const User = require('../models/User');
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');
@@ -123,14 +133,14 @@ const jwtSecret = process.env.JWT_SECRET || 'fallbacksecret';
 const adminToken = jwt.sign({ id: mockAdminId, role: 'admin' }, jwtSecret);
 const facultyToken = jwt.sign({ id: mockFacultyId, role: 'faculty' }, jwtSecret);
 const studentToken = jwt.sign({ id: mockStudentId, role: 'student' }, jwtSecret);
-const organizerToken = jwt.sign({ id: mockOrganizerId, role: 'organizer' }, jwtSecret);
+const organizerToken = jwt.sign({ id: mockOrganizerId, role: 'faculty' }, jwtSecret);
 
 describe('Dashboard Integration Test Suite', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
     User.findById.mockImplementation((id) => {
-      const role = id === mockAdminId ? 'admin' : (id === mockFacultyId ? 'faculty' : (id === mockOrganizerId ? 'organizer' : 'student'));
+      const role = id === mockAdminId ? 'admin' : (id === mockFacultyId ? 'faculty' : 'student');
       return createQueryMock({
         _id: id,
         name: 'Test User',
@@ -279,7 +289,8 @@ describe('Dashboard Integration Test Suite', () => {
         _id: mockEventId,
         requestedFaculty: mockFacultyId,
         status: 'Pending Review',
-        save: jest.fn().mockImplementation(function() { return Promise.resolve(this); })
+        save: jest.fn().mockImplementation(function() { return Promise.resolve(this); }),
+        populate: jest.fn().mockImplementation(function() { return Promise.resolve(this); })
       };
       Event.findById.mockResolvedValue(mockEvent);
 
@@ -301,6 +312,19 @@ describe('Dashboard Integration Test Suite', () => {
 
       const res = await request(app)
         .get(`/api/faculty/events/${mockEventId}/registrations`)
+        .set('Authorization', `Bearer ${facultyToken}`);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.length).toBe(1);
+    });
+
+    it('GET /api/faculty/registrations should return all registrations for faculty/admin', async () => {
+      Registration.find.mockReturnValue(createQueryMock([
+        { studentId: mockStudentId, eventId: mockEventId }
+      ]));
+
+      const res = await request(app)
+        .get('/api/faculty/registrations')
         .set('Authorization', `Bearer ${facultyToken}`);
 
       expect(res.statusCode).toBe(200);

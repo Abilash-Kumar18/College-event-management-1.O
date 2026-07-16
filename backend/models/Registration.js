@@ -50,6 +50,10 @@ const registrationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    certificateApproved: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

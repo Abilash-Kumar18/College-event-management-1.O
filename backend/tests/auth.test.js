@@ -46,7 +46,7 @@ jest.mock('../models/User', () => {
   MockUserModel.findById = jest.fn().mockImplementation((id) => {
     const userObj = {
       _id: id,
-      role: id === '507f1f77bcf86cd799439011' ? 'admin' : (id === '507f1f77bcf86cd799439012' ? 'faculty' : (id === '507f1f77bcf86cd799439014' ? 'organizer' : 'student')),
+      role: id === '507f1f77bcf86cd799439011' ? 'admin' : (id === '507f1f77bcf86cd799439012' ? 'faculty' : 'student'),
       name: 'Mock User',
       email: 'mock@college.edu',
       isApproved: true,
@@ -210,37 +210,7 @@ describe('College Event Management Auth System', () => {
     });
   });
 
-  describe('Organizer Registration', () => {
-    it('should register an organizer with isApproved = false', async () => {
-      User.findOne.mockResolvedValue(null);
-      User.create.mockResolvedValue({
-        _id: mockOrganizerId,
-        role: 'organizer',
-        name: 'ACM Club',
-        regNo: 'ORG555',
-        email: 'acm@gmail.com',
-        mobileNumber: '1122334455',
-        clubName: 'ACM Student Chapter',
-        isApproved: false,
-      });
-
-      const res = await request(app)
-        .post('/api/auth/register/organizer')
-        .send({
-          name: 'ACM Club',
-          regNo: 'ORG555',
-          email: 'acm@gmail.com',
-          mobileNumber: '1122334455',
-          clubName: 'ACM Student Chapter',
-          password: 'SecurePassword@456'
-        });
-
-      expect(res.statusCode).toBe(201);
-      expect(res.body.success).toBe(true);
-      expect(res.body.user.role).toBe('organizer');
-      expect(res.body.user.isApproved).toBe(false);
-    });
-  });
+  
 
   describe('NoSQL Injection Prevention', () => {
     it('should reject requests with object query injection attempts in email/password', async () => {
@@ -282,28 +252,7 @@ describe('College Event Management Auth System', () => {
       expect(res.body.token).toBeDefined();
     });
 
-    it('should deny login for unapproved organizer with 403', async () => {
-      User.findOne.mockResolvedValue({
-        _id: mockOrganizerId,
-        role: 'organizer',
-        email: 'organizer@college.edu',
-        password: 'hashed_pwd',
-        name: 'Jane Organizer',
-        isApproved: false,
-        matchPassword: jest.fn().mockResolvedValue(true),
-      });
-
-      const res = await request(app)
-        .post('/api/auth/login')
-        .send({
-          email: 'organizer@college.edu',
-          password: 'studentPassword123',
-          role: 'organizer'
-        });
-
-      expect(res.statusCode).toBe(403);
-      expect(res.body.message).toContain('Approval pending from faculty');
-    });
+    
 
     it('should trigger dummy comparison and return 401 when user is not found', async () => {
       User.findOne.mockResolvedValue(null);
@@ -375,41 +324,7 @@ describe('College Event Management Auth System', () => {
       expect(res.body.message).toContain('is not authorized to access this resource');
     });
 
-    it('should allow faculty to approve organizer', async () => {
-      const mockSave = jest.fn().mockResolvedValue(true);
-      const mockOrganizer = {
-        _id: mockOrganizerId,
-        role: 'organizer',
-        name: 'ACM Club',
-        email: 'acm@college.edu',
-        isApproved: false,
-        save: mockSave,
-      };
-
-      User.findById.mockImplementation((id) => {
-        if (id === mockFacultyId) {
-          return User.createQueryMock({
-            _id: mockFacultyId,
-            role: 'faculty',
-            name: 'Dr. Smith',
-          });
-        }
-        if (id === mockOrganizerId) {
-          return User.createQueryMock(mockOrganizer);
-        }
-        return User.createQueryMock(null);
-      });
-
-      const res = await request(app)
-        .put(`/api/faculty/approve-organizer/${mockOrganizerId}`)
-        .set('Authorization', `Bearer ${facultyToken}`);
-
-      expect(res.statusCode).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.user.isApproved).toBe(true);
-      expect(mockOrganizer.isApproved).toBe(true);
-      expect(mockSave).toHaveBeenCalled();
-    });
+    
   });
 
   describe('Forgot Password Flow', () => {

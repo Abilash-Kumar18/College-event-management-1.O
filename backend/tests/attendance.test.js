@@ -41,6 +41,16 @@ jest.mock('../models/Registration', () => {
   return MockRegistrationModel;
 });
 
+jest.mock('../models/Attendance', () => {
+  const MockAttendanceModel = jest.fn().mockImplementation((data) => ({
+    ...data,
+    save: jest.fn().mockResolvedValue(true)
+  }));
+  MockAttendanceModel.findOne = jest.fn().mockResolvedValue(null);
+  MockAttendanceModel.findOneAndUpdate = jest.fn().mockResolvedValue(null);
+  return MockAttendanceModel;
+});
+
 const User = require('../models/User');
 const Event = require('../models/Event');
 const Registration = require('../models/Registration');

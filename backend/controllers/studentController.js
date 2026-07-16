@@ -51,9 +51,18 @@ const getStudentDashboard = async (req, res, next) => {
 // @access  Private/Student
 const getBrowseEvents = async (req, res, next) => {
   try {
+    const now = new Date();
+    // Auto-close past events
+    if (typeof Event.updateMany === 'function') {
+      await Event.updateMany(
+        { status: { $in: ['Approved', 'Upcoming'] }, dateTime: { $lt: now } },
+        { status: 'Closed' }
+      );
+    }
+
     const events = await Event.find({
-      status: { $in: ['Approved', 'Upcoming'] },
-      dateTime: { $gte: new Date() },
+      status: 'Approved',
+      dateTime: { $gte: now },
     }).populate('createdBy', 'name email role clubName').sort({ dateTime: 1 });
 
     res.status(200).json(events);
@@ -77,9 +86,14 @@ const registerForEvent = async (req, res, next) => {
       throw new Error('Event not found');
     }
 
-    if (!['Approved', 'Upcoming'].includes(event.status)) {
+    if (event.status !== 'Approved') {
       res.status(400);
       throw new Error('Event is not open for registration');
+    }
+
+    if (new Date(event.dateTime) < new Date()) {
+      res.status(400);
+      throw new Error('Registration is closed because the event has already started or completed');
     }
 
     const alreadyRegistered = await Registration.findOne({
@@ -149,12 +163,46 @@ const registerForEvent = async (req, res, next) => {
       } catch (emailErr) {
         console.error('Failed to send registration confirmation email:', emailErr.message);
       }
+    } else if (regStatus === 'Pending') {
+      try {
+        const { sendPendingApprovalEmail, sendFacultyPendingApprovalEmail } = require('../utils/email');
+        await sendPendingApprovalEmail(
+          req.user.email,
+          req.user.name,
+          event.title
+        );
+
+        // Notify respective faculty coordinator/creator
+        const eventWithFaculty = await Event.findById(eventId)
+          .populate('requestedFaculty')
+          .populate('createdBy');
+        
+        let targetFaculty = null;
+        if (eventWithFaculty) {
+          if (eventWithFaculty.requestedFaculty && (eventWithFaculty.requestedFaculty.role === 'faculty' || eventWithFaculty.requestedFaculty.role === 'admin')) {
+            targetFaculty = eventWithFaculty.requestedFaculty;
+          } else if (eventWithFaculty.createdBy && (eventWithFaculty.createdBy.role === 'faculty' || eventWithFaculty.createdBy.role === 'admin')) {
+            targetFaculty = eventWithFaculty.createdBy;
+          }
+        }
+
+        if (targetFaculty && targetFaculty.email) {
+          await sendFacultyPendingApprovalEmail(
+            targetFaculty.email,
+            targetFaculty.name,
+            req.user.name,
+            event.title
+          );
+        }
+      } catch (emailErr) {
+        console.error('Failed to send registration pending email notifications:', emailErr.message);
+      }
     }
 
     res.status(201).json({
       success: true,
       message: regStatus === 'Pending' 
-        ? 'Registration request submitted. Awaiting payment verification by the organizer.' 
+        ? 'Registration request submitted. Awaiting payment verification by the host/faculty.' 
         : 'Successfully registered for event. Confirmation email sent.',
       sixDigitId,
       status: regStatus
@@ -243,6 +291,10 @@ const selfScanAttendance = async (req, res, next) => {
       registration.points = 10;
     }
     await registration.save();
+
+    // Store attendance separately in the attendance collection
+    const { recordAttendance } = require('../utils/attendanceHelper');
+    await recordAttendance(eventId, studentId, true, studentId);
 
     res.status(200).json({
       success: true,

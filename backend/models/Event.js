@@ -45,7 +45,7 @@ const eventSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ['Upcoming', 'Closed', 'Pending Review', 'Approved', 'Rejected', 'Deleted'],
-      default: 'Pending Review',
+      default: 'Approved',
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -67,7 +67,7 @@ const eventSchema = new mongoose.Schema(
     coordinationStatus: {
       type: String,
       enum: ['Pending', 'Accepted', 'Denied'],
-      default: 'Pending',
+      default: 'Accepted',
     },
     qrCode: {
       type: String,
@@ -94,6 +94,10 @@ const eventSchema = new mongoose.Schema(
     entryFee: {
       type: Number,
       default: 0,
+    },
+    reportSent: {
+      type: Boolean,
+      default: false,
     },
     fromDate: {
       type: Date,

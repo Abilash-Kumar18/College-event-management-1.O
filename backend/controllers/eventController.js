@@ -9,25 +9,46 @@ const crypto = require('crypto');
 // @access  Public
 const getEvents = async (req, res, next) => {
   try {
-    let query = {};
-    
-    if (req.query.status === 'upcoming') {
-      // Approved events in the future
-      query.status = 'Approved';
-      query.dateTime = { $gte: new Date() };
-    } else if (req.query.status === 'closed') {
-      // Manually closed or in the past
-      query.$or = [
-        { status: 'Closed' },
-        { dateTime: { $lt: new Date() } }
-      ];
-    } else if (req.query.status) {
-      // Match explicit status if passed
-      query.status = req.query.status;
+    const now = new Date();
+
+    // 1. Auto-close completed/past events
+    if (typeof Event.updateMany === 'function') {
+      await Event.updateMany(
+        { status: { $in: ['Approved', 'Upcoming'] }, dateTime: { $lt: now } },
+        { status: 'Closed' }
+      );
     }
 
-    if (!req.query.status && req.query.includeDeleted !== 'true') {
-      query.status = { $ne: 'Deleted' };
+    // 2. Determine caller role by inspecting JWT (if present)
+    const jwt = require('jsonwebtoken');
+    const User = require('../models/User');
+    const authHeader = req.headers.authorization;
+    let isStaff = false;
+    if (authHeader && authHeader.startsWith('Bearer')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+        if (user && (user.role === 'admin' || user.role === 'faculty')) {
+          isStaff = true;
+        }
+      } catch (err) {
+        // ignore invalid token / guest
+      }
+    }
+
+    let query = {};
+    if (!isStaff) {
+      // Students / Public visitors should only see active, Approved events in the future
+      query.status = 'Approved';
+      query.dateTime = { $gte: now };
+    } else {
+      // Faculty / Admin can view everything, filter status if explicitly requested
+      if (req.query.status) {
+        query.status = req.query.status;
+      } else if (req.query.includeDeleted !== 'true') {
+        query.status = { $ne: 'Deleted' };
+      }
     }
 
     const events = await Event.find(query)
@@ -35,7 +56,7 @@ const getEvents = async (req, res, next) => {
       .populate('requestedFaculty', 'name email role deptYear mobileNumber')
       .populate('rejectedBy', 'name email role mobileNumber')
       .populate('deletedBy', 'name email role mobileNumber')
-      .sort({ dateTime: req.query.status === 'upcoming' ? 1 : -1 });
+      .sort({ dateTime: !isStaff ? 1 : -1 });
 
     const eventsWithCount = await Promise.all(events.map(async (event) => {
       const regCount = await Registration.countDocuments({ 
@@ -114,6 +135,11 @@ const createEvent = async (req, res, next) => {
       throw new Error('Please provide all required fields');
     }
 
+    if (priceType === 'paid' && entryFee >= 1500) {
+      res.status(400);
+      throw new Error('Amount per person must be less than 1500');
+    }
+
     const event = new Event({
       title,
       category,
@@ -125,7 +151,8 @@ const createEvent = async (req, res, next) => {
       posterUrl,
       description,
       createdBy: req.user._id,
-      status: 'Pending Review',
+      status: 'Approved',
+      coordinationStatus: 'Accepted',
       requestedFaculty,
       mode,
       registrationType,
@@ -232,6 +259,40 @@ const registerForEvent = async (req, res, next) => {
         );
       } catch (emailErr) {
         console.error('Failed to send registration confirmation email:', emailErr.message);
+      }
+    } else if (regStatus === 'Pending') {
+      try {
+        const { sendPendingApprovalEmail, sendFacultyPendingApprovalEmail } = require('../utils/email');
+        await sendPendingApprovalEmail(
+          req.user.email,
+          req.user.name,
+          event.title
+        );
+
+        // Notify respective faculty coordinator/creator
+        const eventWithFaculty = await Event.findById(event._id)
+          .populate('requestedFaculty')
+          .populate('createdBy');
+        
+        let targetFaculty = null;
+        if (eventWithFaculty) {
+          if (eventWithFaculty.requestedFaculty && (eventWithFaculty.requestedFaculty.role === 'faculty' || eventWithFaculty.requestedFaculty.role === 'admin')) {
+            targetFaculty = eventWithFaculty.requestedFaculty;
+          } else if (eventWithFaculty.createdBy && (eventWithFaculty.createdBy.role === 'faculty' || eventWithFaculty.createdBy.role === 'admin')) {
+            targetFaculty = eventWithFaculty.createdBy;
+          }
+        }
+
+        if (targetFaculty && targetFaculty.email) {
+          await sendFacultyPendingApprovalEmail(
+            targetFaculty.email,
+            targetFaculty.name,
+            req.user.name,
+            event.title
+          );
+        }
+      } catch (emailErr) {
+        console.error('Failed to send registration pending email notifications:', emailErr.message);
       }
     }
 

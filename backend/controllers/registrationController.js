@@ -4,7 +4,7 @@ const Registration = require('../models/Registration');
 // @route   PUT /api/registrations/:id
 // @access  Private/Organizer/Faculty/Admin
 const updateRegistrationStatus = async (req, res, next) => {
-  let { status, points } = req.body;
+  let { status, points, certificateApproved } = req.body;
 
   try {
     const registration = await Registration.findById(req.id || req.params.id);
@@ -42,7 +42,23 @@ const updateRegistrationStatus = async (req, res, next) => {
       registration.points = Number(points);
     }
 
+    if (certificateApproved !== undefined) {
+      registration.certificateApproved = !!certificateApproved;
+    }
+
     const updatedRegistration = await registration.save();
+
+    // Store attendance separately in the attendance collection if status changed
+    if (status) {
+      const { recordAttendance } = require('../utils/attendanceHelper');
+      const isPresent = status === 'Checked-in';
+      await recordAttendance(
+        updatedRegistration.eventId,
+        updatedRegistration.studentId._id || updatedRegistration.studentId,
+        isPresent,
+        req.user ? req.user._id : (updatedRegistration.studentId._id || updatedRegistration.studentId)
+      );
+    }
     
     // Populate student data
     await updatedRegistration.populate('studentId', 'name email regNo deptYear mobileNumber');
@@ -51,12 +67,14 @@ const updateRegistrationStatus = async (req, res, next) => {
     if (wasPending && status === 'Registered') {
       const { sendRegistrationEmail } = require('../utils/email');
       const Event = require('../models/Event');
+      const User = require('../models/User');
       try {
         const ev = await Event.findById(updatedRegistration.eventId);
-        if (ev && updatedRegistration.studentId) {
+        const studentUser = await User.findById(updatedRegistration.studentId);
+        if (ev && studentUser) {
           await sendRegistrationEmail(
-            updatedRegistration.studentId.email,
-            updatedRegistration.studentId.name,
+            studentUser.email,
+            studentUser.name,
             ev.title,
             ev.dateTime,
             ev.venue,

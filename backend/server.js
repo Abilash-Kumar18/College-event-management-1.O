@@ -135,6 +135,9 @@ if (require.main === module) {
       console.log(
         `Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`
       );
+      // Start background scheduler
+      const { startScheduler } = require('./utils/scheduler');
+      startScheduler();
     });
   });
 } else {

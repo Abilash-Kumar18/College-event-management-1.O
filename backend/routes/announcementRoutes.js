@@ -5,7 +5,7 @@ const { protect, authorizeRoles } = require('../middleware/authMiddleware');
 
 // /api/announcements
 router.route('/')
-  .post(protect, authorizeRoles('organizer', 'faculty', 'admin'), createAnnouncement)
+  .post(protect, authorizeRoles('faculty', 'admin'), createAnnouncement)
   .get(protect, getAnnouncements);
 
 module.exports = router;

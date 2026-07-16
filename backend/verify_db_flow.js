@@ -84,6 +84,9 @@ async function run() {
   const orgUserId = orgLoginData.user.id || orgLoginData.user._id;
   console.log('Organizer login successful. Obtained JWT Token.');
 
+  const adminUser = await User.findOne({ role: 'admin' });
+  const adminId = adminUser ? adminUser._id : null;
+
   // 6. Create Event
   console.log('\n[6/12] Organizer Creating Event: "Node Integration BootCamp"...');
   const createEventRes = await fetch(`${API_BASE}/events`, {
@@ -95,12 +98,16 @@ async function run() {
     body: JSON.stringify({
       title: 'Node Integration BootCamp',
       description: 'Programmatic validation of Mongoose Atlas write workflows',
-      dateTime: new Date(Date.now() + 86400000).toISOString(),
+      dateTime: new Date().toISOString(),
       venue: 'Cloud Lab 2',
       maxParticipants: 100,
       category: 'Web Dev Club',
       organizerDept: 'CSE Third Year',
-      clubName: 'Web Dev Club'
+      clubName: 'Web Dev Club',
+      priceType: 'paid',
+      entryFee: 150,
+      upiNumber: '9876543210',
+      requestedFaculty: adminId
     })
   });
   const createEventData = await createEventRes.json();
@@ -170,7 +177,11 @@ async function run() {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${studentToken}`
-    }
+    },
+    body: JSON.stringify({
+      collegeName: 'K.S.R. College Of Engineering',
+      paymentScreenshot: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+    })
   });
   const registerData = await registerRes.json();
   if (!registerRes.ok) {
@@ -178,6 +189,33 @@ async function run() {
   }
   const registrationId = registerData._id || registerData.id;
   console.log(`Student registered successfully. Registration ID: ${registrationId}. Current status: ${registerData.status}`);
+
+  // Simulate Faculty/Admin verifying and approving registration
+  console.log(`\n[Simulate] Faculty/Admin verifying and approving registration: ${registrationId}...`);
+  const approveRegRes = await fetch(`${API_BASE}/registrations/${registrationId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${facultyToken}`
+    },
+    body: JSON.stringify({
+      status: 'Registered'
+    })
+  });
+  const approveRegData = await approveRegRes.json();
+  if (!approveRegRes.ok) {
+    throw new Error(`Faculty registration approval failed: ${JSON.stringify(approveRegData)}`);
+  }
+  console.log(`Student registration approved successfully. New status: ${approveRegData.registration.status}`);
+
+  // Trigger simulation of upcoming event report email (Mail requirement 4)
+  console.log(`\n[Simulate] Generating and emailing upcoming event registrations report...`);
+  try {
+    const { sendUpcomingEventReports } = require('./utils/scheduler');
+    await sendUpcomingEventReports();
+  } catch (repErr) {
+    console.error('Failed to trigger report email simulation:', repErr.message);
+  }
 
   // 11. Organizer Scanning Attendance Check-in
   console.log('\n[11/12] Organizer scanning student QR code for attendance check-in...');
@@ -204,7 +242,18 @@ async function run() {
   console.log(`- Attendance ScanTime in MongoDB Atlas: ${finalDbReg.scanTime}`);
   console.log(`- Points Awarded in MongoDB Atlas: ${finalDbReg.points}`);
 
-  console.log('\n=== INTEGRATION VERIFICATION COMPLETE: ALL WORKFLOWS PASSED PERFECTLY! ===');
+  // Cleanup test documents
+  console.log('\n[Cleanup] Cleaning up created test entities from MongoDB Atlas...');
+  const studentUserObj = await User.findOne({ email: studentEmail });
+  const orgUserObj = await User.findOne({ email: orgEmail });
+  
+  if (eventId) await Event.findByIdAndDelete(eventId);
+  if (registrationId) await Registration.findByIdAndDelete(registrationId);
+  if (studentUserObj) await User.findByIdAndDelete(studentUserObj._id);
+  if (orgUserObj) await User.findByIdAndDelete(orgUserObj._id);
+  console.log('Test entities cleaned up successfully.');
+
+  console.log('\n=== INTEGRATION VERIFICATION COMPLETE: ALL WORKFLOWS PASSED PERFECTLY ===');
   process.exit(0);
 }
 

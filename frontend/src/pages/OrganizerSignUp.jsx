@@ -164,7 +164,6 @@ export default function OrganizerSignUp() {
               } else {
                 e.target.setCustomValidity("");
               }
-              e.target.reportValidity();
             }}
             className="signup-input"
             placeholder="Enter organizer/organization name"
@@ -189,7 +188,6 @@ export default function OrganizerSignUp() {
               } else {
                 e.target.setCustomValidity("");
               }
-              e.target.reportValidity();
             }}
             className="signup-input"
             placeholder="Enter registration/license number"
@@ -215,7 +213,6 @@ export default function OrganizerSignUp() {
               } else {
                 e.target.setCustomValidity("");
               }
-              e.target.reportValidity();
             }}
             className="signup-input"
             placeholder="Enter email address"
@@ -253,7 +250,6 @@ export default function OrganizerSignUp() {
                 } else {
                   e.target.setCustomValidity("");
                 }
-                e.target.reportValidity();
               }}
               className="signup-input"
               placeholder="Enter 10-digit number"
@@ -282,7 +278,6 @@ export default function OrganizerSignUp() {
               } else {
                 e.target.setCustomValidity("");
               }
-              e.target.reportValidity();
             }}
             className="signup-input"
             placeholder="Enter club name"
@@ -307,7 +302,6 @@ export default function OrganizerSignUp() {
                 } else {
                   e.target.setCustomValidity("");
                 }
-                e.target.reportValidity();
               }}
               className="signup-input"
               placeholder="Enter password"
@@ -343,7 +337,6 @@ export default function OrganizerSignUp() {
                 } else {
                   e.target.setCustomValidity("");
                 }
-                e.target.reportValidity();
               }}
               className="signup-input"
               placeholder="Confirm password"

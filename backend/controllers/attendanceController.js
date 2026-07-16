@@ -50,6 +50,10 @@ const scanAttendance = async (req, res, next) => {
     }
     await registration.save();
 
+    // Store attendance separately in the attendance collection
+    const { recordAttendance } = require('../utils/attendanceHelper');
+    await recordAttendance(eventId, registration.studentId._id || registration.studentId, true, req.user._id);
+
     res.status(200).json({
       success: true,
       message: 'Student successfully checked in',
