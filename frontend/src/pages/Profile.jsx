@@ -88,8 +88,8 @@ export default function Profile() {
   }, [isEventDetailModalOpen, isEditModalOpen, isPasswordModalOpen, isDeleteModalOpen]);
 
   useEffect(() => {
-    // 1. Load user from localStorage
-    const storedUser = localStorage.getItem('user');
+    // 1. Load user from sessionStorage
+    const storedUser = sessionStorage.getItem('user');
     let userId = 'default';
     if (storedUser) {
       try {
@@ -97,7 +97,7 @@ export default function Profile() {
         userId = parsed._id || 'default';
         setUser(prev => ({ ...prev, ...parsed }));
       } catch (e) {
-        console.error('Failed to parse user from localStorage', e);
+        console.error('Failed to parse user from sessionStorage', e);
       }
     }
 
@@ -144,10 +144,10 @@ export default function Profile() {
           setUser(prev => ({ ...prev, ...backendProfile }));
           
           // Sync full details
-          const stored = localStorage.getItem('user');
+          const stored = sessionStorage.getItem('user');
           if (stored) {
             const parsed = JSON.parse(stored);
-            localStorage.setItem('user', JSON.stringify({ ...parsed, ...backendProfile }));
+            sessionStorage.setItem('user', JSON.stringify({ ...parsed, ...backendProfile }));
           }
         }
 
@@ -237,10 +237,10 @@ export default function Profile() {
     localStorage.setItem(localStatsKey, JSON.stringify(stats));
 
     setUser(prev => ({ ...prev, ...stats }));
-    const storedUser = localStorage.getItem('user');
+    const storedUser = sessionStorage.getItem('user');
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
-      localStorage.setItem('user', JSON.stringify({ ...parsed, ...stats }));
+      sessionStorage.setItem('user', JSON.stringify({ ...parsed, ...stats }));
     }
 
     try {
@@ -358,10 +358,10 @@ export default function Profile() {
       const updatedData = await authService.updateProfile(editForm);
       setUser(prev => ({ ...prev, ...updatedData }));
 
-      const stored = localStorage.getItem('user');
+      const stored = sessionStorage.getItem('user');
       if (stored) {
         const parsed = JSON.parse(stored);
-        localStorage.setItem('user', JSON.stringify({ ...parsed, ...updatedData }));
+        sessionStorage.setItem('user', JSON.stringify({ ...parsed, ...updatedData }));
       }
 
       setSettingsSuccess('Profile updated successfully!');
@@ -456,8 +456,8 @@ export default function Profile() {
 
     try {
       await authService.deleteAccount();
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('token');
       setIsDeleteModalOpen(false);
       navigate('/login');
     } catch (err) {

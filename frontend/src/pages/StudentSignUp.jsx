@@ -169,10 +169,10 @@ export default function StudentSignUp() {
 
       // Store token and user data on successful registration
       if (response.token) {
-        localStorage.setItem("token", response.token);
+        sessionStorage.setItem("token", response.token);
       }
       if (response.user) {
-        localStorage.setItem("user", JSON.stringify(response.user));
+        sessionStorage.setItem("user", JSON.stringify(response.user));
       }
 
       // Auto-login: if token was returned, go straight to dashboard

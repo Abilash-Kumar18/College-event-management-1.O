@@ -80,7 +80,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
 
   const [likedEvents, setLikedEvents] = useState(() => {
-    const userStored = localStorage.getItem('user');
+    const userStored = sessionStorage.getItem('user');
     if (!userStored) return [];
     try {
       const parsed = JSON.parse(userStored);
@@ -91,7 +91,7 @@ export default function Dashboard() {
   });
 
   const [savedEvents, setSavedEvents] = useState(() => {
-    const userStored = localStorage.getItem('user');
+    const userStored = sessionStorage.getItem('user');
     if (!userStored) return [];
     try {
       const parsed = JSON.parse(userStored);
@@ -400,8 +400,8 @@ export default function Dashboard() {
 
   // Auth check
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
+    const userData = sessionStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
 
     if (!token || !userData) {
       navigate('/login');
@@ -457,10 +457,10 @@ export default function Dashboard() {
     }
 
     stats.points = Math.max(0, stats.points + pointsDiff);
-    localStorage.setItem(localStatsKey, JSON.stringify(stats));
+    sessionStorage.setItem(localStatsKey, JSON.stringify(stats));
 
-    // Also update main user object in localStorage if present so Profile is synced
-    const storedUser = localStorage.getItem('user');
+    // Also update main user object in sessionStorage if present so Profile is synced
+    const storedUser = sessionStorage.getItem('user');
     if (storedUser) {
       try {
         const parsed = JSON.parse(storedUser);
@@ -470,7 +470,7 @@ export default function Dashboard() {
         parsed.sharesCount = stats.sharesCount;
         parsed.eventViewsCount = stats.eventViewsCount;
         parsed.registrationsCount = stats.registrationsCount;
-        localStorage.setItem('user', JSON.stringify(parsed));
+        sessionStorage.setItem('user', JSON.stringify(parsed));
       } catch (err) {
         console.error(err);
       }
@@ -769,8 +769,8 @@ export default function Dashboard() {
 
   // Logout Handler
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     navigate('/login');
   };
 
