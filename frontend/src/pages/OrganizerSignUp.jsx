@@ -69,7 +69,7 @@ export default function OrganizerSignUp() {
       confirmInput.setCustomValidity("");
     }
 
-    // 3. Name validation (alphabets only)
+    
     const nameRegex = /^[a-zA-Z\s]+$/;
     const nameInput = form.querySelector('input[name="organizerName"]');
     if (!nameRegex.test(formData.organizerName)) {
