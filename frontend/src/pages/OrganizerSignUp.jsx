@@ -42,7 +42,7 @@ export default function OrganizerSignUp() {
       return;
     }
 
-    // 1. Password constraints (advanced requirements)
+    
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
     const passwordInput = form.querySelector('input[name="password"]');
     if (!passwordRegex.test(formData.password)) {
